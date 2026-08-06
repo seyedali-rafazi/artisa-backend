@@ -1,7 +1,8 @@
 """Authentication Router."""
 
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from passlib.context import CryptContext
 
 from core.config import settings
@@ -16,7 +17,7 @@ from core.security import (
 )
 from models.user import User
 from schemas.response import success_response, error_response
-from schemas.user import UserRegister, UserLogin, UserResponse
+from schemas.user import UserRegister, UserLogin, UserResponse, TokenRefreshPayload
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -65,7 +66,7 @@ async def register(response: Response, payload: UserRegister):
     ).model_dump()
 
     return success_response(
-        data={"token": access_token, "user": user_data},
+        data={"token": access_token, "refresh_token": refresh_token, "user": user_data},
         message="ثبت نام با موفقیت انجام شد",
         status_code=status.HTTP_201_CREATED,
     )
@@ -103,7 +104,7 @@ async def login(response: Response, payload: UserLogin):
     ).model_dump()
 
     return success_response(
-        data={"token": access_token, "user": user_data},
+        data={"token": access_token, "refresh_token": refresh_token, "user": user_data},
         message="ورود با موفقیت انجام شد",
     )
 
@@ -116,15 +117,26 @@ async def logout(response: Response, current_user: User = Depends(get_current_us
 
 
 @router.post("/refresh", summary="Refresh access token")
-async def refresh_token(response: Response, refresh_token: str = None):
+async def refresh_token(
+    response: Response,
+    request: Request,
+    payload: Optional[TokenRefreshPayload] = None,
+):
     """Issue new access token using refresh token."""
-    if not refresh_token:
+    token_str = (payload and payload.refresh_token) or request.cookies.get("refresh_token")
+    if not token_str:
         return error_response(
             message="توکن بازنشانی یافت نشد", status_code=status.HTTP_401_UNAUTHORIZED
         )
 
-    payload = verify_token(refresh_token, expected_type="refresh")
-    user_id = payload.get("sub")
+    try:
+        token_payload = verify_token(token_str, expected_type="refresh")
+    except Exception:
+        return error_response(
+            message="توکن بازنشانی نامعتبر یا منقضی شده است", status_code=status.HTTP_401_UNAUTHORIZED
+        )
+
+    user_id = token_payload.get("sub")
     user = await User.get(user_id)
     if not user or not user.is_active:
         return error_response(
@@ -132,11 +144,12 @@ async def refresh_token(response: Response, refresh_token: str = None):
         )
 
     new_access_token = create_access_token({"sub": str(user.id)})
+    new_refresh_token = create_refresh_token({"sub": str(user.id)})
     new_csrf_token = generate_csrf_token()
 
-    set_auth_cookies(response, new_access_token, refresh_token, new_csrf_token)
+    set_auth_cookies(response, new_access_token, new_refresh_token, new_csrf_token)
 
     return success_response(
-        data={"token": new_access_token},
+        data={"token": new_access_token, "refresh_token": new_refresh_token},
         message="توکن با موفقیت تمدید شد",
     )

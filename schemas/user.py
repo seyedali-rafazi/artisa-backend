@@ -26,6 +26,10 @@ class PasswordChange(BaseModel):
     newPassword: str = Field(..., min_length=6)
 
 
+class TokenRefreshPayload(BaseModel):
+    refresh_token: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     id: str
     name: str
@@ -37,5 +41,6 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     user: UserResponse
