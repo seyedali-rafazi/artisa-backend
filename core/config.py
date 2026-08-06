@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_MINUTES: int = config(
         "JWT_REFRESH_TOKEN_LIFETIME", default=10080, cast=int
     )
+    GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="")
+    GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="")
 
     # MongoDB
     MONGODB_URI: str = config("MONGODB_URI", default="")

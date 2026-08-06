@@ -11,8 +11,12 @@ class User(Document):
 
     name: str
     email: Indexed(str, unique=True)  # type: ignore
-    hashed_password: str
+    hashed_password: Optional[str] = None
     phone: Optional[str] = None
+    google_id: Optional[str] = None
+    provider: str = "local"  # "local", "google"
+    avatar: Optional[str] = None
+    email_verified: bool = False
     role: str = "کاربر عادی"  # "کاربر عادی", "مدیر سیستم"
     is_active: bool = True
     is_superuser: bool = False

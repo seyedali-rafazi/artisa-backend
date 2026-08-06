@@ -30,12 +30,19 @@ class TokenRefreshPayload(BaseModel):
     refresh_token: Optional[str] = None
 
 
+class GoogleAuthRequest(BaseModel):
+    credential: str = Field(..., description="Google ID Token received from Google Sign-In")
+
+
 class UserResponse(BaseModel):
     id: str
     name: str
     email: str
     phone: Optional[str] = None
     role: str
+    avatar: Optional[str] = None
+    provider: Optional[str] = "local"
+    email_verified: Optional[bool] = False
     createdAt: Optional[str] = None
 
 
