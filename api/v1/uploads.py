@@ -10,8 +10,22 @@ from schemas.response import success_response, error_response
 
 router = APIRouter()
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+def get_upload_dir() -> str:
+    """Return a writable upload directory, falling back to /tmp on serverless environments like Vercel."""
+    target_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads"
+    )
+    if os.environ.get("VERCEL"):
+        target_dir = "/tmp/uploads"
+
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except (OSError, PermissionError):
+        target_dir = "/tmp/uploads"
+        os.makedirs(target_dir, exist_ok=True)
+
+    return target_dir
 
 
 @router.post("", summary="Upload image file")
@@ -27,9 +41,10 @@ async def upload_file(
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
+    upload_dir = get_upload_dir()
     ext = os.path.splitext(file.filename)[1]
     unique_filename = f"{uuid.uuid4().hex}{ext}"
-    filepath = os.path.join(UPLOAD_DIR, unique_filename)
+    filepath = os.path.join(upload_dir, unique_filename)
 
     with open(filepath, "wb") as buffer:
         content = await file.read()

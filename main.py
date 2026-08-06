@@ -61,9 +61,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static file serving for uploads
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Static file serving for uploads (with Vercel /tmp fallback)
+def get_upload_dir() -> str:
+    target_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    if os.environ.get("VERCEL"):
+        target_dir = "/tmp/uploads"
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except (OSError, PermissionError):
+        target_dir = "/tmp/uploads"
+        os.makedirs(target_dir, exist_ok=True)
+    return target_dir
+
+
+UPLOAD_DIR = get_upload_dir()
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
