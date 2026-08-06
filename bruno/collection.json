@@ -1,0 +1,30 @@
+{
+  "name": "Artisa API Bruno Collection",
+  "version": "1.0",
+  "items": [
+    {
+      "type": "http",
+      "name": "Health Check",
+      "request": {
+        "url": "{{baseUrl}}/health",
+        "method": "GET"
+      }
+    },
+    {
+      "type": "http",
+      "name": "List Products",
+      "request": {
+        "url": "{{baseUrl}}/api/v1/products",
+        "method": "GET"
+      }
+    },
+    {
+      "type": "http",
+      "name": "Track Order",
+      "request": {
+        "url": "{{baseUrl}}/api/v1/orders/track/10042",
+        "method": "GET"
+      }
+    }
+  ]
+}
