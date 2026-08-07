@@ -52,7 +52,7 @@ class AuthService:
             hashed_password=hashed_pwd,
             phone=phone,
             is_verified=False,
-            role="کاربر عادی",
+            role="user",
             provider="local",
         )
         await user.insert()

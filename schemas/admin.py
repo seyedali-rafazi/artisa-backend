@@ -92,7 +92,7 @@ class UserStatusUpdateRequest(BaseModel):
 
 
 class UserRoleUpdateRequest(BaseModel):
-    role: str  # customer, admin, super_admin
+    role: str  # user, admin, superadmin
 
 
 class OrderStatusUpdateRequest(BaseModel):

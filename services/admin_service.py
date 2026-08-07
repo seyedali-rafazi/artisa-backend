@@ -87,7 +87,7 @@ class AdminService:
                 product_sales_map[p_name]["sales"] += item.quantity
                 product_sales_map[p_name]["revenue"] += float(item.price * item.quantity)
 
-        total_customers = sum(1 for u in users if u.normalized_role == RoleEnum.CUSTOMER.value)
+        total_customers = sum(1 for u in users if u.normalized_role == RoleEnum.USER.value)
         total_products = len(products)
         low_stock_products = sum(1 for p in products if 0 < getattr(p, "stock_quantity", 100) <= 5)
         out_of_stock_products = sum(1 for p in products if getattr(p, "stock_quantity", 100) <= 0)
@@ -232,7 +232,7 @@ class AdminService:
         if not target_user:
             raise HTTPException(status_code=404, detail="کاربر یافت نشد")
 
-        if new_role not in [RoleEnum.CUSTOMER.value, RoleEnum.ADMIN.value, RoleEnum.SUPER_ADMIN.value]:
+        if new_role not in [RoleEnum.USER.value, RoleEnum.ADMIN.value, RoleEnum.SUPER_ADMIN.value]:
             raise HTTPException(status_code=400, detail="نقش وارد شده نامعتبر است")
 
         old_role = target_user.normalized_role
