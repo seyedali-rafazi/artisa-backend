@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "artisa-api-collection-2026",
 		"name": "Artisa API Collection",
-		"description": "Complete Postman collection for Artisa E-Commerce Backend API",
+		"description": "Complete Postman collection for Artisa E-Commerce Backend API including Auth & Admin Dashboard",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -31,6 +31,48 @@
 					}
 				},
 				{
+					"name": "Verify Email (OTP)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"testuser@artisa.com\",\n  \"code\": \"1234\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/verify-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "verify-email"]
+						}
+					}
+				},
+				{
+					"name": "Resend Verification Code",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"testuser@artisa.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/resend-verification",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "resend-verification"]
+						}
+					}
+				},
+				{
 					"name": "Login",
 					"request": {
 						"method": "POST",
@@ -42,12 +84,54 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"email\": \"user@artisa.com\",\n  \"password\": \"123456\"\n}"
+							"raw": "{\n  \"email\": \"superadmin@artisa.com\",\n  \"password\": \"SuperAdmin@123456\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/login",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "login"]
+						}
+					}
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"testuser@artisa.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "forgot-password"]
+						}
+					}
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"testuser@artisa.com\",\n  \"code\": \"1234\",\n  \"new_password\": \"newpassword123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/reset-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "reset-password"]
 						}
 					}
 				},
@@ -60,6 +144,179 @@
 							"raw": "{{baseUrl}}/api/v1/auth/logout",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "logout"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin",
+			"item": [
+				{
+					"name": "Dashboard Analytics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/analytics/dashboard",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "analytics", "dashboard"]
+						}
+					}
+				},
+				{
+					"name": "List Users",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/users?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "users"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" }
+							]
+						}
+					}
+				},
+				{
+					"name": "List Products",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/products?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "products"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Product",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"تابلو مدرن تست\",\n  \"nameEn\": \"Modern Test Art\",\n  \"price\": 2500000,\n  \"image\": \"https://images.unsplash.com/photo-1578301978693-85fa9c0320b9\",\n  \"category\": \"تابلو نقاشی\",\n  \"stock_quantity\": 50,\n  \"status\": \"published\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/products",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "products"]
+						}
+					}
+				},
+				{
+					"name": "List Orders",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/orders?page=1&limit=10",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "orders"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" }
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Order Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"shipped\",\n  \"paymentStatus\": \"paid\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/orders/ORD-10042/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "orders", "ORD-10042", "status"]
+						}
+					}
+				},
+				{
+					"name": "List Admins (Super Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/admins",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "admins"]
+						}
+					}
+				},
+				{
+					"name": "Audit Logs (Super Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/audit-logs?page=1&limit=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "audit-logs"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "20" }
+							]
 						}
 					}
 				}
@@ -84,31 +341,6 @@
 							"path": ["api", "v1", "users", "me"]
 						}
 					}
-				},
-				{
-					"name": "Update Profile",
-					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{token}}"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"name\": \"کاربر جدید\",\n  \"phone\": \"09129998877\"\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/profile",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "profile"]
-						}
-					}
 				}
 			]
 		},
@@ -130,56 +362,6 @@
 								{ "key": "page", "value": "1" },
 								{ "key": "limit", "value": "20" }
 							]
-						}
-					}
-				},
-				{
-					"name": "Get Product Details",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/products/p1",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "products", "p1"]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Orders",
-			"item": [
-				{
-					"name": "Checkout Order",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n  \"fullName\": \"علیرضا محمدی\",\n  \"phone\": \"09121234567\",\n  \"postalCode\": \"1234567890\",\n  \"address\": \"تهران، خیابان ولیعصر، کوچه 12\",\n  \"paymentMethod\": \"online\",\n  \"items\": [\n    {\n      \"id\": \"p1\",\n      \"name\": \"تابلو نقاشی افق طلایی\",\n      \"price\": 3200000,\n      \"quantity\": 1,\n      \"image\": \"https://images.unsplash.com/photo-1578301978693-85fa9c0320b9\"\n    }\n  ]\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/orders",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "orders"]
-						}
-					}
-				},
-				{
-					"name": "Track Order",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/orders/track/10042",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "orders", "track", "10042"]
 						}
 					}
 				}

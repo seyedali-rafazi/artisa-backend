@@ -94,7 +94,7 @@ async def list_products(
     )
 
 
-@router.post("/products", status_code=status.HTTP_21_CREATED)
+@router.post("/products", status_code=status.HTTP_201_CREATED)
 async def create_product(
     payload: ProductCreateRequest,
     request: Request,

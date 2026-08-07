@@ -41,7 +41,28 @@ Welcome to the **Artisa API** documentation. All endpoints follow RESTful design
 }
 ```
 
-### 2. Login User
+### 2. Verify Email (4-Digit OTP)
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/verify-email`
+- **Request Body**:
+```json
+{
+  "email": "ali@example.com",
+  "code": "4281"
+}
+```
+
+### 3. Resend Verification Code (60s Rate Limit)
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/resend-verification`
+- **Request Body**:
+```json
+{
+  "email": "ali@example.com"
+}
+```
+
+### 4. Login User
 - **Method**: `POST`
 - **URL**: `/api/v1/auth/login`
 - **Request Body**:
@@ -52,161 +73,93 @@ Welcome to the **Artisa API** documentation. All endpoints follow RESTful design
 }
 ```
 
-### 3. Refresh Access Token
+### 5. Forgot Password Code Request
 - **Method**: `POST`
-- **URL**: `/api/v1/auth/refresh`
+- **URL**: `/api/v1/auth/forgot-password`
+- **Request Body**:
+```json
+{
+  "email": "ali@example.com"
+}
+```
 
-### 4. Logout User
+### 6. Reset Password with Code
 - **Method**: `POST`
-- **URL**: `/api/v1/auth/logout`
+- **URL**: `/api/v1/auth/reset-password`
+- **Request Body**:
+```json
+{
+  "email": "ali@example.com",
+  "code": "4281",
+  "new_password": "newpassword123"
+}
+```
+
+### 7. Google OAuth Sign-In
+- **Method**: `POST`
+- **URL**: `/api/v1/auth/google`
+- **Request Body**:
+```json
+{
+  "credential": "<google_id_token>"
+}
+```
 
 ---
 
-## User Profile Endpoints
+## Admin Endpoints (RBAC Enforced)
 
-### 1. Get Profile
+### 1. Dashboard Analytics & KPIs
 - **Method**: `GET`
-- **URL**: `/api/v1/users/me`
-- **Header**: `Authorization: Bearer <access_token>`
+- **URL**: `/api/v1/admin/analytics/dashboard`
 
-### 2. Update Profile
+### 2. List Users (Paginated & Filtered)
+- **Method**: `GET`
+- **URL**: `/api/v1/admin/users?page=1&limit=10&search=ali&role=customer`
+
+### 3. Update User Account Status
+- **Method**: `PATCH`
+- **URL**: `/api/v1/admin/users/{user_id}/status`
+- **Request Body**: `{ "is_active": false }`
+
+### 4. Update User Role (Super Admin Only)
+- **Method**: `PATCH`
+- **URL**: `/api/v1/admin/users/{user_id}/role`
+- **Request Body**: `{ "role": "admin" }`
+
+### 5. List Products (Admin Table)
+- **Method**: `GET`
+- **URL**: `/api/v1/admin/products?page=1&limit=10&status=published`
+
+### 6. Create Product (Admin)
+- **Method**: `POST`
+- **URL**: `/api/v1/admin/products`
+
+### 7. Update Product
 - **Method**: `PUT`
-- **URL**: `/api/v1/users/profile`
-- **Request Body**:
-```json
-{
-  "name": "علی رضایی جدید",
-  "phone": "09129999999"
-}
-```
+- **URL**: `/api/v1/admin/products/{product_id}`
 
-### 3. Change Password
-- **Method**: `PUT`
-- **URL**: `/api/v1/users/password`
-- **Request Body**:
-```json
-{
-  "currentPassword": "password123",
-  "newPassword": "newpassword123"
-}
-```
+### 8. Archive Product
+- **Method**: `DELETE`
+- **URL**: `/api/v1/admin/products/{product_id}`
 
----
-
-## Products Endpoints
-
-### 1. List Products
-- **Method**: `GET`
-- **URL**: `/api/v1/products`
-- **Query Parameters**:
-  - `search`: General search string
-  - `category`: Category name (e.g. `تابلو نقاشی`, `هنر دیواری`, `مجسمه و دکوری`, `قاب و فریم`, `هنر مدرن`)
-  - `isSpecial`: `true` / `false` (Amazing offers)
-  - `isBestSeller`: `true` / `false` (Best sellers)
-  - `minPrice`: Minimum price filter
-  - `maxPrice`: Maximum price filter
-  - `sort_by`: `price` | `rating` | `created_at`
-  - `sort_order`: `asc` | `desc`
-  - `page`: Page number (default `1`)
-  - `limit`: Items per page (default `20`)
-
-### 2. Get Product Details
-- **Method**: `GET`
-- **URL**: `/api/v1/products/{id}`
-
-### 3. Create Product (Admin)
+### 9. Duplicate Product
 - **Method**: `POST`
-- **URL**: `/api/v1/products`
+- **URL**: `/api/v1/admin/products/{product_id}/duplicate`
 
----
-
-## Comments Endpoints
-
-### 1. List Product Comments
+### 10. List Orders (Admin)
 - **Method**: `GET`
-- **URL**: `/api/v1/products/{product_id}/comments`
+- **URL**: `/api/v1/admin/orders?page=1&limit=10`
 
-### 2. Post Comment
-- **Method**: `POST`
-- **URL**: `/api/v1/products/{product_id}/comments`
-- **Request Body**:
-```json
-{
-  "text": "بسیار زیبا و عالی بود",
-  "rating": 5
-}
-```
+### 11. Update Order Status
+- **Method**: `PATCH`
+- **URL**: `/api/v1/admin/orders/{order_id}/status`
+- **Request Body**: `{ "status": "shipped", "paymentStatus": "paid" }`
 
----
+### 12. Manage Admin Accounts (Super Admin Only)
+- **Method**: `GET` / `POST` / `DELETE`
+- **URL**: `/api/v1/admin/admins`
 
-## Addresses Endpoints
-
-### 1. List User Addresses
+### 13. Audit Trail Logs (Super Admin Only)
 - **Method**: `GET`
-- **URL**: `/api/v1/addresses`
-
-### 2. Add Address
-- **Method**: `POST`
-- **URL**: `/api/v1/addresses`
-
-### 3. Set Default Address
-- **Method**: `PUT`
-- **URL**: `/api/v1/addresses/{id}/default`
-
----
-
-## Orders & Tracking Endpoints
-
-### 1. Create Order (Checkout)
-- **Method**: `POST`
-- **URL**: `/api/v1/orders`
-- **Request Body**:
-```json
-{
-  "fullName": "علیرضا محمدی",
-  "phone": "09121234567",
-  "postalCode": "1234567890",
-  "address": "تهران، خیابان ولیعصر...",
-  "paymentMethod": "online",
-  "items": [
-    {
-      "id": "p1",
-      "name": "تابلو نقاشی «افق طلایی»",
-      "price": 3200000,
-      "quantity": 1,
-      "image": "https://..."
-    }
-  ]
-}
-```
-
-### 2. Track Order Timeline
-- **Method**: `GET`
-- **URL**: `/api/v1/orders/track/{order_id}`
-- **Example Response**:
-```json
-{
-  "success": true,
-  "message": "وضعیت سفارش دریافت شد",
-  "data": {
-    "orderId": "ORD-10042",
-    "status": "delivered",
-    "steps": [
-      { "title": "statusReceived", "desc": "سفارش در سیستم ثبت شده است", "completed": true },
-      { "title": "statusProcessing", "desc": "در حال آماده‌سازی", "completed": true },
-      { "title": "statusShipped", "desc": "تحویل به پست پیشتاز", "completed": true },
-      { "title": "statusDelivered", "desc": "تحویل داده شده است", "completed": true }
-    ]
-  }
-}
-```
-
----
-
-## Image Upload Endpoint
-
-### Upload Image
-- **Method**: `POST`
-- **URL**: `/api/v1/upload`
-- **Content-Type**: `multipart/form-data`
-- **Form Field**: `file` (image file)
+- **URL**: `/api/v1/admin/audit-logs?page=1&limit=20`
