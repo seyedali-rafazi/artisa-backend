@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # Email (Resend)
     RESEND_API_KEY: str = config("RESEND_API_KEY", default="")
     FROM_EMAIL: str = config("FROM_EMAIL", default="Artisa <onboarding@resend.dev>")
+    EMAIL_FROM: str = config("EMAIL_FROM", default=config("FROM_EMAIL", default="Artisa <onboarding@resend.dev>"))
 
     # MongoDB
     MONGODB_URI: str = config("MONGODB_URI", default="")

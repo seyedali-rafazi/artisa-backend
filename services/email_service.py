@@ -78,8 +78,9 @@ class EmailService:
         """
 
         try:
+            email_from = getattr(settings, "EMAIL_FROM", settings.FROM_EMAIL)
             params = {
-                "from": settings.FROM_EMAIL,
+                "from": email_from,
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
@@ -153,8 +154,9 @@ class EmailService:
         """
 
         try:
+            email_from = getattr(settings, "EMAIL_FROM", settings.FROM_EMAIL)
             params = {
-                "from": settings.FROM_EMAIL,
+                "from": email_from,
                 "to": [to_email],
                 "subject": subject,
                 "html": html_content,
