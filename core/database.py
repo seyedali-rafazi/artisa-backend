@@ -14,6 +14,7 @@ from models.wishlist import Wishlist
 from models.blog import Article
 from models.faq import FAQ
 from models.banner import Banner
+from models.audit_log import AuditLog
 
 
 class Database:
@@ -48,6 +49,7 @@ class Database:
                 Article,
                 FAQ,
                 Banner,
+                AuditLog,
             ],
         )
         print(f"Connected to MongoDB: {settings.MONGODB_NAME}")

@@ -28,6 +28,7 @@ from api.v1 import (
     faqs_router,
     banners_router,
     uploads_router,
+    admin_router,
 )
 
 
@@ -133,6 +134,7 @@ app.include_router(blog_router, prefix="/api/v1/blog", tags=["Blog"])
 app.include_router(faqs_router, prefix="/api/v1/faqs", tags=["FAQs"])
 app.include_router(banners_router, prefix="/api/v1/banners", tags=["Banners"])
 app.include_router(uploads_router, prefix="/api/v1/upload", tags=["Uploads"])
+app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 
 
 @app.get("/", tags=["Root"])
