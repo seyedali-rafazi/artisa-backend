@@ -5,6 +5,7 @@ from beanie import init_beanie
 from core.config import settings
 
 from models.user import User
+from models.verification_code import VerificationCode
 from models.product import Product
 from models.comment import Comment
 from models.address import Address
@@ -38,6 +39,7 @@ class Database:
             database=cls.client[settings.MONGODB_NAME],
             document_models=[
                 User,
+                VerificationCode,
                 Product,
                 Comment,
                 Address,

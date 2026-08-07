@@ -17,6 +17,7 @@ class User(Document):
     provider: str = "local"  # "local", "google"
     avatar: Optional[str] = None
     email_verified: bool = False
+    is_verified: bool = False
     role: str = "کاربر عادی"  # "کاربر عادی", "مدیر سیستم"
     is_active: bool = True
     is_superuser: bool = False

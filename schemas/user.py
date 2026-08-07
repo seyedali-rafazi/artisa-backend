@@ -34,6 +34,30 @@ class GoogleAuthRequest(BaseModel):
     credential: str = Field(..., description="Google ID Token received from Google Sign-In")
 
 
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=4, max_length=4, description="4-digit verification code")
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyResetCodeRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=4, max_length=4, description="4-digit reset code")
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=4, max_length=4, description="4-digit reset code")
+    new_password: str = Field(..., min_length=6, description="New password (min 6 chars)")
+
+
 class UserResponse(BaseModel):
     id: str
     name: str
@@ -43,6 +67,7 @@ class UserResponse(BaseModel):
     avatar: Optional[str] = None
     provider: Optional[str] = "local"
     email_verified: Optional[bool] = False
+    is_verified: Optional[bool] = False
     createdAt: Optional[str] = None
 
 

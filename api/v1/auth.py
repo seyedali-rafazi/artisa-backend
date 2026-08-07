@@ -19,55 +19,26 @@ from core.security import (
 )
 from models.user import User
 from schemas.response import success_response, error_response
+from services.auth_service import AuthService
 from schemas.user import (
     UserRegister,
     UserLogin,
     UserResponse,
     TokenRefreshPayload,
     GoogleAuthRequest,
+    VerifyEmailRequest,
+    ResendVerificationRequest,
+    ForgotPasswordRequest,
+    VerifyResetCodeRequest,
+    ResetPasswordRequest,
 )
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password: str, hashed_password: Optional[str]) -> bool:
-    if not hashed_password:
-        return False
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
-
-
-@router.post("/register", summary="Register a new user")
-async def register(response: Response, payload: UserRegister):
-    """Register a new account."""
-    existing_user = await User.find_one(User.email == payload.email)
-    if existing_user:
-        return error_response(
-            message="کاربری با این ایمیل قبلاً ثبت نام کرده است",
-            status_code=status.HTTP_400_BAD_REQUEST,
-        )
-
-    user = User(
-        name=payload.name,
-        email=payload.email,
-        hashed_password=get_password_hash(payload.password),
-        phone=payload.phone,
-        role="کاربر عادی",
-        provider="local",
-    )
-    await user.insert()
-
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-    csrf_token = generate_csrf_token()
-
-    set_auth_cookies(response, access_token, refresh_token, csrf_token)
-
-    user_data = UserResponse(
+def build_user_response(user: User) -> dict:
+    """Helper to convert User model to UserResponse dict."""
+    return UserResponse(
         id=str(user.id),
         name=user.name,
         email=user.email,
@@ -76,53 +47,65 @@ async def register(response: Response, payload: UserRegister):
         avatar=user.avatar,
         provider=user.provider,
         email_verified=user.email_verified,
+        is_verified=user.is_verified,
         createdAt=user.created_at.strftime("%Y/%m/%d"),
     ).model_dump()
 
+
+@router.post("/register", summary="Register a new user (Unverified)")
+async def register(payload: UserRegister):
+    """Register a new account and send 4-digit email verification code."""
+    res = await AuthService.register_user(
+        name=payload.name,
+        email=payload.email,
+        password=payload.password,
+        phone=payload.phone,
+    )
     return success_response(
-        data={"token": access_token, "refresh_token": refresh_token, "user": user_data},
-        message="ثبت نام با موفقیت انجام شد",
+        data=res,
+        message=res["message"],
         status_code=status.HTTP_201_CREATED,
     )
+
+
+@router.post("/verify-email", summary="Verify email with 4-digit OTP")
+async def verify_email(response: Response, payload: VerifyEmailRequest):
+    """Verify user's 4-digit code and activate account."""
+    res = await AuthService.verify_email(
+        response=response, email=payload.email, code=payload.code
+    )
+    user_data = build_user_response(res["user"])
+    return success_response(
+        data={
+            "token": res["token"],
+            "refresh_token": res["refresh_token"],
+            "user": user_data,
+        },
+        message=res["message"],
+    )
+
+
+@router.post("/resend-verification", summary="Resend verification 4-digit OTP code")
+async def resend_verification(payload: ResendVerificationRequest):
+    """Resend verification code (max once per 60 seconds)."""
+    res = await AuthService.resend_verification(email=payload.email)
+    return success_response(message=res["message"])
 
 
 @router.post("/login", summary="User login")
 async def login(response: Response, payload: UserLogin):
     """Authenticate user with email and password."""
-    user = await User.find_one(User.email == payload.email)
-    if not user or not verify_password(payload.password, user.hashed_password):
-        return error_response(
-            message="ایمیل یا رمز عبور اشتباه است",
-            status_code=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    if not user.is_active:
-        return error_response(
-            message="حساب کاربری شما غیرفعال شده است",
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
-
-    access_token = create_access_token({"sub": str(user.id)})
-    refresh_token = create_refresh_token({"sub": str(user.id)})
-    csrf_token = generate_csrf_token()
-
-    set_auth_cookies(response, access_token, refresh_token, csrf_token)
-
-    user_data = UserResponse(
-        id=str(user.id),
-        name=user.name,
-        email=user.email,
-        phone=user.phone,
-        role=user.role,
-        avatar=user.avatar,
-        provider=user.provider,
-        email_verified=user.email_verified,
-        createdAt=user.created_at.strftime("%Y/%m/%d"),
-    ).model_dump()
-
+    res = await AuthService.login_user(
+        response=response, email=payload.email, password=payload.password
+    )
+    user_data = build_user_response(res["user"])
     return success_response(
-        data={"token": access_token, "refresh_token": refresh_token, "user": user_data},
-        message="ورود با موفقیت انجام شد",
+        data={
+            "token": res["token"],
+            "refresh_token": res["refresh_token"],
+            "user": user_data,
+        },
+        message=res["message"],
     )
 
 
@@ -137,7 +120,6 @@ async def google_auth(response: Response, payload: GoogleAuthRequest):
         )
 
     try:
-        # Verify Google ID token (validates signature, exp, aud, and nbf)
         id_info = id_token.verify_oauth2_token(
             payload.credential, google_requests.Request(), client_id
         )
@@ -169,24 +151,20 @@ async def google_auth(response: Response, payload: GoogleAuthRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    # 1. Search by Google ID first
     user = await User.find_one(User.google_id == google_id)
-
-    # 2. If not found, search by email
     if not user:
         user = await User.find_one(User.email == email)
 
     if user:
-        # Update / Link Google account info
         user.google_id = google_id
         user.provider = "google"
         if picture:
             user.avatar = picture
         user.email_verified = email_verified or user.email_verified
+        user.is_verified = True
         user.updated_at = datetime.utcnow()
         await user.save()
     else:
-        # 3. Create new user account
         user = User(
             name=name,
             email=email,
@@ -195,6 +173,7 @@ async def google_auth(response: Response, payload: GoogleAuthRequest):
             provider="google",
             avatar=picture,
             email_verified=email_verified,
+            is_verified=True,
             role="کاربر عادی",
         )
         await user.insert()
@@ -205,29 +184,41 @@ async def google_auth(response: Response, payload: GoogleAuthRequest):
             status_code=status.HTTP_403_FORBIDDEN,
         )
 
-    # Generate JWT access and refresh tokens
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
     csrf_token = generate_csrf_token()
-
     set_auth_cookies(response, access_token, refresh_token, csrf_token)
 
-    user_data = UserResponse(
-        id=str(user.id),
-        name=user.name,
-        email=user.email,
-        phone=user.phone,
-        role=user.role,
-        avatar=user.avatar,
-        provider=user.provider,
-        email_verified=user.email_verified,
-        createdAt=user.created_at.strftime("%Y/%m/%d"),
-    ).model_dump()
-
+    user_data = build_user_response(user)
     return success_response(
         data={"token": access_token, "refresh_token": refresh_token, "user": user_data},
         message="ورود با گوگل با موفقیت انجام شد",
     )
+
+
+@router.post("/forgot-password", summary="Request password reset 4-digit code")
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Send a password reset 4-digit code to user's email."""
+    res = await AuthService.forgot_password(email=payload.email)
+    return success_response(message=res["message"])
+
+
+@router.post("/verify-reset-code", summary="Verify password reset 4-digit code")
+async def verify_reset_code(payload: VerifyResetCodeRequest):
+    """Validate user's password reset code."""
+    res = await AuthService.verify_reset_code(
+        email=payload.email, code=payload.code
+    )
+    return success_response(data={"valid": True}, message=res["message"])
+
+
+@router.post("/reset-password", summary="Reset password using 4-digit code")
+async def reset_password(payload: ResetPasswordRequest):
+    """Update password using verified 4-digit code."""
+    res = await AuthService.reset_password(
+        email=payload.email, code=payload.code, new_password=payload.new_password
+    )
+    return success_response(message=res["message"])
 
 
 @router.post("/logout", summary="User logout")

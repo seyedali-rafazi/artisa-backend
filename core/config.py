@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="")
     GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="")
 
+    # Email (Resend)
+    RESEND_API_KEY: str = config("RESEND_API_KEY", default="")
+    FROM_EMAIL: str = config("FROM_EMAIL", default="Artisa <onboarding@resend.dev>")
+
     # MongoDB
     MONGODB_URI: str = config("MONGODB_URI", default="")
     MONGODB_USER: str = config("MONGODB_USER", default="")

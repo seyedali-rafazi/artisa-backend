@@ -16,6 +16,7 @@ bcrypt==4.1.3
 python-decouple==3.8
 google-auth==2.27.0
 requests==2.31.0
+resend==0.7.0
 
 # CORS
 fastapi-cors==0.0.6
