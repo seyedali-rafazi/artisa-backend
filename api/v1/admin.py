@@ -180,7 +180,7 @@ def get_upload_dir() -> str:
     return target_dir
 
 
-@router.post("/admin/upload")
+@router.post("/upload")
 async def upload_image(
     file: UploadFile = File(...),
     admin_user: User = Depends(require_admin),
