@@ -166,24 +166,39 @@ async def duplicate_product(
     return res
 
 
-@router.post("/upload")
+def get_upload_dir() -> str:
+    target_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads"
+    )
+    if os.environ.get("VERCEL"):
+        target_dir = "/tmp/uploads"
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+    except (OSError, PermissionError):
+        target_dir = "/tmp/uploads"
+        os.makedirs(target_dir, exist_ok=True)
+    return target_dir
+
+
+@router.post("/admin/upload")
 async def upload_image(
     file: UploadFile = File(...),
     admin_user: User = Depends(require_admin),
 ):
     """Upload product image or gallery asset."""
-    if not file.content_type.startswith("image/"):
+    if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="تنها فایل‌های تصویری مجاز هستند")
 
-    os.makedirs("static/uploads", exist_ok=True)
-    file_ext = file.filename.split(".")[-1] if "." in file.filename else "png"
-    unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
-    file_path = os.path.join("static/uploads", unique_filename)
+    upload_dir = get_upload_dir()
+    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".png"
+    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+    filepath = os.path.join(upload_dir, unique_filename)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    with open(filepath, "wb") as buffer:
+        content = await file.read()
+        buffer.write(content)
 
-    url = f"/static/uploads/{unique_filename}"
+    url = f"/uploads/{unique_filename}"
     return {"url": url, "filename": unique_filename}
 
 
