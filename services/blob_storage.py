@@ -15,7 +15,7 @@ from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-BLOB_API_BASE = "https://vercel.com/api/blob"
+BLOB_API_BASE = "https://blob.vercel-storage.com"
 BLOB_API_VERSION = "7"
 BLOB_HOST_MARKERS = (
     "blob.vercel-storage.com",
@@ -73,11 +73,6 @@ def _auth_headers(token: str, *, content_type: Optional[str] = None) -> dict:
         "x-api-version": BLOB_API_VERSION,
         "x-vercel-blob-access": "public",
     }
-    store_id = (settings.BLOB_STORE_ID or "").strip()
-    if store_id:
-        headers["x-vercel-blob-store-id"] = (
-            store_id[len("store_") :] if store_id.startswith("store_") else store_id
-        )
     if content_type:
         headers["x-content-type"] = content_type
     return headers
@@ -90,14 +85,14 @@ def _put_sync(
     content_type: str,
     token: str,
 ) -> BlobUploadResult:
-    params = {"pathname": pathname}
+    clean_pathname = pathname.lstrip("/")
+    url = f"{BLOB_API_BASE}/{clean_pathname}"
     headers = _auth_headers(token, content_type=content_type)
-    headers["x-add-random-suffix"] = "0"
+    headers["x-add-random-suffix"] = "false"
 
     try:
         response = requests.put(
-            BLOB_API_BASE,
-            params=params,
+            url,
             headers=headers,
             data=data,
             timeout=60,
@@ -108,9 +103,10 @@ def _put_sync(
 
     if response.status_code >= 400:
         logger.error(
-            "Blob upload failed status=%s body=%s",
+            "Blob upload failed status=%s body=%s url=%s",
             response.status_code,
             response.text[:500],
+            response.url,
         )
         raise BlobStorageError(f"Blob upload failed ({response.status_code})")
 
@@ -120,7 +116,7 @@ def _put_sync(
         raise BlobStorageError("Invalid Blob upload response") from exc
 
     url = payload.get("url")
-    returned_pathname = payload.get("pathname") or pathname
+    returned_pathname = payload.get("pathname") or clean_pathname
     if not url:
         raise BlobStorageError("Blob upload response missing url")
 
