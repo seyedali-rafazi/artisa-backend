@@ -139,11 +139,15 @@ Welcome to the **Artisa API** documentation. All endpoints follow RESTful design
 - **Method**: `PUT`
 - **URL**: `/api/v1/admin/products/{product_id}`
 
-### 8. Archive Product
+### 8. Archive Product (Soft Delete)
 - **Method**: `DELETE`
 - **URL**: `/api/v1/admin/products/{product_id}`
 
-### 9. Duplicate Product
+### 9. Delete Product (Permanent)
+- **Method**: `DELETE`
+- **URL**: `/api/v1/admin/products/{product_id}/permanent`
+
+### 10. Duplicate Product
 - **Method**: `POST`
 - **URL**: `/api/v1/admin/products/{product_id}/duplicate`
 

@@ -136,6 +136,19 @@ async def archive_product(
     return {"message": "محصول با موفقیت آرشیو شد", "status": product.status}
 
 
+@router.delete("/products/{product_id}/permanent")
+async def delete_product_permanently(
+    product_id: str,
+    request: Request,
+    admin_user: User = Depends(require_admin),
+):
+    """Permanently delete a product and its Blob images."""
+    await AdminService.hard_delete_product(
+        admin_user=admin_user, product_id=product_id, request=request
+    )
+    return {"message": "محصول با موفقیت و به صورت دائمی حذف شد"}
+
+
 @router.post("/products/{product_id}/restore")
 async def restore_product(
     product_id: str,
