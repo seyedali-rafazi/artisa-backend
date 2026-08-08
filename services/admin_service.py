@@ -157,13 +157,30 @@ class AdminService:
                 if o.status not in ["cancelled", "refunded"]:
                     user_spent_map[o.userId] = user_spent_map.get(o.userId, 0.0) + float(o.totalPrice or 0)
 
+        # Normalize role parameter if provided
+        target_role = None
+        if role:
+            r_clean = role.lower().strip()
+            if r_clean in ["superadmin", "super_admin", "مدیر ارشد"]:
+                target_role = RoleEnum.SUPER_ADMIN.value
+            elif r_clean in ["admin", "مدیر سیستم", "مدیر"]:
+                target_role = RoleEnum.ADMIN.value
+            elif r_clean in ["user", "customer", "مشتری"]:
+                target_role = RoleEnum.USER.value
+            else:
+                target_role = r_clean
+
         filtered = []
         for u in all_users:
             if search:
-                s = search.lower()
-                if s not in u.name.lower() and s not in u.email.lower() and (not u.phone or s not in u.phone):
+                s = search.lower().strip()
+                name_val = (u.name or "").lower()
+                email_val = (u.email or "").lower()
+                phone_val = u.phone or ""
+                role_val = u.normalized_role.lower()
+                if s not in name_val and s not in email_val and s not in phone_val and s not in role_val:
                     continue
-            if role and u.normalized_role != role:
+            if target_role and u.normalized_role != target_role:
                 continue
             if is_active is not None and u.is_active != is_active:
                 continue
