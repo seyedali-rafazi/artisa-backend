@@ -335,17 +335,23 @@ class AdminService:
     async def update_product(
         admin_user: User, product_id: str, payload: ProductUpdateRequest, request: Request
     ) -> Product:
-        """Update existing product."""
+        """Update existing product and clean up replaced Blob images."""
+        from services.image_upload import cleanup_replaced_urls
+
         product = await Product.get(PydanticObjectId(product_id))
         if not product:
             raise HTTPException(status_code=404, detail="محصول یافت نشد")
 
+        previous_urls = [product.image, *(product.gallery or [])]
         update_data = payload.model_dump(exclude_unset=True)
         for key, value in update_data.items():
             setattr(product, key, value)
 
         product.updated_at = datetime.utcnow()
         await product.save()
+
+        next_urls = [product.image, *(product.gallery or [])]
+        await cleanup_replaced_urls(previous_urls=previous_urls, next_urls=next_urls)
 
         await AuditLogService.log_action(
             user=admin_user,
@@ -356,6 +362,29 @@ class AdminService:
         )
 
         return product
+
+    @staticmethod
+    async def hard_delete_product(
+        admin_user: User, product_id: str, request: Request
+    ) -> None:
+        """Permanently delete a product and its Blob images."""
+        from services.blob_storage import delete_file
+
+        product = await Product.get(PydanticObjectId(product_id))
+        if not product:
+            raise HTTPException(status_code=404, detail="محصول یافت نشد")
+
+        image_urls = [product.image, *(product.gallery or [])]
+        await product.delete()
+        await delete_file(image_urls)
+
+        await AuditLogService.log_action(
+            user=admin_user,
+            action="DELETE_PRODUCT",
+            resource=f"product_{product_id}",
+            details={"name": product.name},
+            request=request,
+        )
 
     @staticmethod
     async def archive_product(

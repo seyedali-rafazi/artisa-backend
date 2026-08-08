@@ -1,6 +1,5 @@
 """Main FastAPI application for Artisa."""
 
-import os
 from contextlib import asynccontextmanager
 
 from beanie import PydanticObjectId
@@ -10,7 +9,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from core.config import settings
 from core.database import db
@@ -62,21 +60,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static file serving for uploads (with Vercel /tmp fallback)
-def get_upload_dir() -> str:
-    target_dir = os.path.join(os.path.dirname(__file__), "uploads")
-    if os.environ.get("VERCEL"):
-        target_dir = "/tmp/uploads"
-    try:
-        os.makedirs(target_dir, exist_ok=True)
-    except (OSError, PermissionError):
-        target_dir = "/tmp/uploads"
-        os.makedirs(target_dir, exist_ok=True)
-    return target_dir
-
-
-UPLOAD_DIR = get_upload_dir()
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# Product images are stored in Vercel Blob (public URLs), not on the
+# ephemeral Vercel filesystem. Legacy /uploads URLs may still exist in MongoDB
+# until migrated; they are no longer served by this application.
 
 
 # Global Exception Handlers

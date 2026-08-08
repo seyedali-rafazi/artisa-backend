@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     MONGODB_PASSWORD: str = config("MONGODB_PASSWORD", default="")
     MONGODB_PASSWORD: str = config("MONGODB_PASSWORD", default="")
 
+    # Vercel Blob (product images)
+    BLOB_STORE_ID: str = config("BLOB_STORE_ID", default="")
+    BLOB_READ_WRITE_TOKEN: str = config("BLOB_READ_WRITE_TOKEN", default="")
+
     # CORS
     CORS_ORIGINS: List[str] = config(
         "CORS_ALLOWED_ORIGINS", default="http://localhost:3000,http://127.0.0.1:3000"

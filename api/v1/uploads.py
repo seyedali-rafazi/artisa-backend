@@ -1,31 +1,13 @@
-"""File Upload Router."""
+"""File Upload Router — validates, optimizes, and stores images in Vercel Blob."""
 
-import os
-import uuid
-from fastapi import APIRouter, File, UploadFile, Depends, status
+from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, status
 
 from core.security import get_current_user
 from models.user import User
 from schemas.response import success_response, error_response
+from services.image_upload import process_and_upload_image
 
 router = APIRouter()
-
-
-def get_upload_dir() -> str:
-    """Return a writable upload directory, falling back to /tmp on serverless environments like Vercel."""
-    target_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads"
-    )
-    if os.environ.get("VERCEL"):
-        target_dir = "/tmp/uploads"
-
-    try:
-        os.makedirs(target_dir, exist_ok=True)
-    except (OSError, PermissionError):
-        target_dir = "/tmp/uploads"
-        os.makedirs(target_dir, exist_ok=True)
-
-    return target_dir
 
 
 @router.post("", summary="Upload image file")
@@ -34,26 +16,22 @@ async def upload_file(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
 ):
-    """Upload an image file and return its accessible URL."""
-    if not file.content_type.startswith("image/"):
+    """Upload an image, optimize to WebP, store in Vercel Blob, return public URL."""
+    try:
+        uploaded = await process_and_upload_image(file)
+    except HTTPException as exc:
         return error_response(
-            message="فقط فایل‌های تصویری مجاز هستند",
-            status_code=status.HTTP_400_BAD_REQUEST,
+            message=exc.detail if isinstance(exc.detail, str) else "خطا در آپلود تصویر",
+            status_code=exc.status_code,
         )
 
-    upload_dir = get_upload_dir()
-    ext = os.path.splitext(file.filename)[1]
-    unique_filename = f"{uuid.uuid4().hex}{ext}"
-    filepath = os.path.join(upload_dir, unique_filename)
-
-    with open(filepath, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-
-    url = f"/uploads/{unique_filename}"
-
     return success_response(
-        data={"url": url, "filename": unique_filename},
+        data={
+            "url": uploaded.url,
+            "pathname": uploaded.pathname,
+            "filename": uploaded.filename,
+            "content_type": uploaded.content_type,
+        },
         message="تصویر با موفقیت بارگذاری شد",
         status_code=status.HTTP_201_CREATED,
     )

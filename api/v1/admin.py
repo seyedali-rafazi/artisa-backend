@@ -1,13 +1,11 @@
 """Admin API Endpoints."""
 
-import os
-import shutil
-import uuid
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Depends, Query, UploadFile, File, HTTPException, status, Request
 from models.user import User
 from dependencies.permissions import require_admin, require_super_admin
 from services.admin_service import AdminService
+from services.image_upload import process_and_upload_image
 from schemas.admin import (
     DashboardStatsResponse,
     ProductCreateRequest,
@@ -166,40 +164,19 @@ async def duplicate_product(
     return res
 
 
-def get_upload_dir() -> str:
-    target_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads"
-    )
-    if os.environ.get("VERCEL"):
-        target_dir = "/tmp/uploads"
-    try:
-        os.makedirs(target_dir, exist_ok=True)
-    except (OSError, PermissionError):
-        target_dir = "/tmp/uploads"
-        os.makedirs(target_dir, exist_ok=True)
-    return target_dir
-
-
 @router.post("/upload")
 async def upload_image(
     file: UploadFile = File(...),
     admin_user: User = Depends(require_admin),
 ):
-    """Upload product image or gallery asset."""
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="تنها فایل‌های تصویری مجاز هستند")
-
-    upload_dir = get_upload_dir()
-    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".png"
-    unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-    filepath = os.path.join(upload_dir, unique_filename)
-
-    with open(filepath, "wb") as buffer:
-        content = await file.read()
-        buffer.write(content)
-
-    url = f"/uploads/{unique_filename}"
-    return {"url": url, "filename": unique_filename}
+    """Upload product image or gallery asset to Vercel Blob."""
+    uploaded = await process_and_upload_image(file)
+    return {
+        "url": uploaded.url,
+        "pathname": uploaded.pathname,
+        "filename": uploaded.filename,
+        "content_type": uploaded.content_type,
+    }
 
 
 # ─── 4. ORDER MANAGEMENT ───────────────────────────────────────────────────

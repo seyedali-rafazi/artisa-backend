@@ -196,7 +196,9 @@ async def update_product(
     payload: ProductUpdate,
     current_user: User = Depends(get_current_user),
 ):
-    """Update existing product details."""
+    """Update existing product details and clean up replaced Blob images."""
+    from services.image_upload import cleanup_replaced_urls
+
     product = None
     try:
         from beanie import PydanticObjectId
@@ -210,11 +212,15 @@ async def update_product(
             message="محصول یافت نشد", status_code=status.HTTP_404_NOT_FOUND
         )
 
+    previous_urls = [product.image, *(getattr(product, "gallery", None) or [])]
     update_data = payload.model_dump(exclude_unset=True)
     for field, val in update_data.items():
         setattr(product, field, val)
 
     await product.save()
+
+    next_urls = [product.image, *(getattr(product, "gallery", None) or [])]
+    await cleanup_replaced_urls(previous_urls=previous_urls, next_urls=next_urls)
 
     data = ProductResponse(
         id=str(product.id),
@@ -240,7 +246,9 @@ async def update_product(
 async def delete_product(
     product_id: str, current_user: User = Depends(get_current_user)
 ):
-    """Delete product by ID."""
+    """Delete product by ID and remove associated Blob images when present."""
+    from services.blob_storage import delete_file
+
     product = None
     try:
         from beanie import PydanticObjectId
@@ -254,5 +262,8 @@ async def delete_product(
             message="محصول یافت نشد", status_code=status.HTTP_404_NOT_FOUND
         )
 
+    image_urls = [product.image, *(getattr(product, "gallery", None) or [])]
     await product.delete()
+    # Blob deletion is best-effort; missing objects must not block deletion
+    await delete_file(image_urls)
     return success_response(message="محصول با موفقیت حذف شد")
