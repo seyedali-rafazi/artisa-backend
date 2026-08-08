@@ -16,14 +16,13 @@ from services import blob_storage  # noqa: E402
 
 
 @pytest.mark.asyncio
-async def test_upload_image_uses_rest_fallback(monkeypatch):
-    monkeypatch.setattr(blob_storage.settings, "BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_store_testtoken")
+async def test_upload_image_uses_rest_api(monkeypatch):
+    monkeypatch.setattr(
+        blob_storage.settings,
+        "BLOB_READ_WRITE_TOKEN",
+        "vercel_blob_rw_store_testtoken",
+    )
     monkeypatch.setattr(blob_storage.settings, "BLOB_STORE_ID", "store_testid")
-
-    async def no_sdk(*args, **kwargs):
-        return None
-
-    monkeypatch.setattr(blob_storage, "_put_via_sdk", no_sdk)
 
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -53,9 +52,9 @@ async def test_upload_image_uses_rest_fallback(monkeypatch):
 async def test_delete_file_ignores_non_blob_urls(monkeypatch):
     called = {"value": False}
 
-    async def fail_if_called(*args, **kwargs):
+    def fail_if_called(*args, **kwargs):
         called["value"] = True
 
-    monkeypatch.setattr(blob_storage, "_delete_via_sdk", fail_if_called)
+    monkeypatch.setattr(blob_storage, "_delete_sync", fail_if_called)
     await blob_storage.delete_file("https://artisa-backend.vercel.app/uploads/x.webp")
     assert called["value"] is False

@@ -167,46 +167,6 @@ def _delete_sync(urls: Sequence[str], *, token: str) -> None:
         raise BlobStorageError(f"Blob delete failed ({response.status_code})")
 
 
-async def _put_via_sdk(
-    pathname: str,
-    data: bytes,
-    *,
-    content_type: str,
-    token: str,
-) -> Optional[BlobUploadResult]:
-    """Try the official vercel SDK; return None if unavailable."""
-    try:
-        from vercel.blob import put_async  # type: ignore
-    except ImportError:
-        return None
-
-    result = await put_async(
-        pathname,
-        data,
-        access="public",
-        content_type=content_type,
-        add_random_suffix=False,
-        token=token,
-    )
-    return BlobUploadResult(
-        url=result.url,
-        pathname=getattr(result, "pathname", None) or pathname,
-        content_type=getattr(result, "content_type", None) or content_type,
-        download_url=getattr(result, "download_url", None),
-    )
-
-
-async def _delete_via_sdk(urls: Sequence[str], *, token: str) -> bool:
-    """Try the official vercel SDK delete; return False if unavailable."""
-    try:
-        from vercel.blob import delete_async  # type: ignore
-    except ImportError:
-        return False
-
-    await delete_async(list(urls), token=token)
-    return True
-
-
 def build_product_pathname(extension: str = ".webp") -> str:
     """Generate a server-side storage key under products/."""
     ext = extension if extension.startswith(".") else f".{extension}"
@@ -221,7 +181,7 @@ async def upload_image(
     folder: str = "products",
 ) -> BlobUploadResult:
     """
-    Upload binary image data to Vercel Blob.
+    Upload binary image data to Vercel Blob via the public Blob REST API.
 
     Returns public URL metadata. Raises BlobStorageError / BlobConfigError.
     """
@@ -229,12 +189,6 @@ async def upload_image(
     key = pathname or f"{folder}/{uuid.uuid4().hex}.webp"
 
     try:
-        sdk_result = await _put_via_sdk(
-            key, data, content_type=content_type, token=token
-        )
-        if sdk_result is not None:
-            return sdk_result
-
         return await asyncio.to_thread(
             _put_sync, key, data, content_type=content_type, token=token
         )
@@ -269,9 +223,7 @@ async def delete_file(url_or_urls: str | Iterable[str]) -> None:
         return
 
     try:
-        used_sdk = await _delete_via_sdk(urls, token=token)
-        if not used_sdk:
-            await asyncio.to_thread(_delete_sync, urls, token=token)
+        await asyncio.to_thread(_delete_sync, urls, token=token)
     except Exception as exc:
         logger.warning("Blob delete soft-failed for %s: %s", urls, exc)
 
