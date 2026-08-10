@@ -391,7 +391,10 @@ class AdminService:
         if not product:
             raise HTTPException(status_code=404, detail="محصول یافت نشد")
 
+        from models.favorite import Favorite
+
         image_urls = [product.image, *(product.gallery or [])]
+        await Favorite.find(Favorite.product_id == product_id).delete()
         await product.delete()
         await delete_file(image_urls)
 

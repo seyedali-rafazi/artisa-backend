@@ -7,6 +7,7 @@ from api.v1.comments import router as comments_router
 from api.v1.addresses import router as addresses_router
 from api.v1.orders import router as orders_router
 from api.v1.wishlist import router as wishlist_router
+from api.v1.favorites import router as favorites_router
 from api.v1.blog import router as blog_router
 from api.v1.faqs import router as faqs_router
 from api.v1.banners import router as banners_router
@@ -21,6 +22,7 @@ __all__ = [
     "addresses_router",
     "orders_router",
     "wishlist_router",
+    "favorites_router",
     "blog_router",
     "faqs_router",
     "banners_router",

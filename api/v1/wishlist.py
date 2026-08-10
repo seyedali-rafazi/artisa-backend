@@ -1,13 +1,15 @@
-"""Wishlist Router."""
+"""Wishlist Router (Legacy & Alias endpoints for Favorites)."""
 
-from fastapi import APIRouter, Depends, status
-
+from fastapi import APIRouter, Depends
 from core.security import get_current_user
-from models.product import Product
 from models.user import User
-from models.wishlist import Wishlist
-from schemas.product import ProductResponse
-from schemas.response import success_response, error_response
+from api.v1.favorites import (
+    get_favorites as get_favs_endpoint,
+    add_favorite as add_fav_endpoint,
+    remove_favorite as remove_fav_endpoint,
+    get_favorite_status as status_fav_endpoint,
+)
+from models.favorite import Favorite
 
 router = APIRouter()
 
@@ -16,43 +18,7 @@ router = APIRouter()
 @router.get("/", include_in_schema=False)
 async def get_wishlist(current_user: User = Depends(get_current_user)):
     """Fetch user wishlist products."""
-    user_id = str(current_user.id)
-    wishlist = await Wishlist.find_one(Wishlist.userId == user_id)
-
-    if not wishlist or not wishlist.productIds:
-        return success_response(data=[], message="علاقه‌مندی‌ها دریافت شد")
-
-    # Fetch products
-    products = []
-    for pid in wishlist.productIds:
-        p = None
-        try:
-            from beanie import PydanticObjectId
-
-            p = await Product.get(PydanticObjectId(pid))
-        except Exception:
-            p = await Product.find_one({"_id": pid})
-        if p:
-            products.append(
-                ProductResponse(
-                    id=str(p.id),
-                    name=p.name,
-                    nameEn=p.nameEn,
-                    price=p.price,
-                    oldPrice=p.oldPrice,
-                    image=p.image,
-                    category=p.category,
-                    categoryEn=p.categoryEn,
-                    rating=p.rating,
-                    isSpecial=p.isSpecial,
-                    isBestSeller=p.isBestSeller,
-                    description=p.description,
-                    descriptionEn=p.descriptionEn,
-                    specifications=p.specifications or {},
-                ).model_dump()
-            )
-
-    return success_response(data=products, message="علاقه‌مندی‌ها دریافت شد")
+    return await get_favs_endpoint(current_user=current_user)
 
 
 @router.post("/toggle/{product_id}", summary="Toggle product in user wishlist")
@@ -61,20 +27,13 @@ async def toggle_wishlist_item(
 ):
     """Add or remove product from user wishlist."""
     user_id = str(current_user.id)
-    wishlist = await Wishlist.find_one(Wishlist.userId == user_id)
+    existing = await Favorite.find_one(
+        Favorite.user_id == user_id, Favorite.product_id == product_id
+    )
 
-    if not wishlist:
-        wishlist = Wishlist(userId=user_id, productIds=[])
-        await wishlist.insert()
-
-    added = False
-    if product_id in wishlist.productIds:
-        wishlist.productIds.remove(product_id)
-        msg = "محصول از علاقه‌مندی‌ها حذف شد"
+    if existing:
+        res = await remove_fav_endpoint(product_id=product_id, current_user=current_user)
+        return res
     else:
-        wishlist.productIds.append(product_id)
-        added = True
-        msg = "محصول به علاقه‌مندی‌ها اضافه شد"
-
-    await wishlist.save()
-    return success_response(data={"added": added}, message=msg)
+        res = await add_fav_endpoint(product_id=product_id, current_user=current_user)
+        return res

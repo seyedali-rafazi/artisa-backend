@@ -22,6 +22,7 @@ from api.v1 import (
     addresses_router,
     orders_router,
     wishlist_router,
+    favorites_router,
     blog_router,
     faqs_router,
     banners_router,
@@ -116,6 +117,7 @@ app.include_router(comments_router, prefix="/api/v1/products", tags=["Comments"]
 app.include_router(addresses_router, prefix="/api/v1/addresses", tags=["Addresses"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(wishlist_router, prefix="/api/v1/wishlist", tags=["Wishlist"])
+app.include_router(favorites_router, prefix="/api/v1/favorites", tags=["Favorites"])
 app.include_router(blog_router, prefix="/api/v1/blog", tags=["Blog"])
 app.include_router(faqs_router, prefix="/api/v1/faqs", tags=["FAQs"])
 app.include_router(banners_router, prefix="/api/v1/banners", tags=["Banners"])

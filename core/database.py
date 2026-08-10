@@ -11,6 +11,7 @@ from models.comment import Comment
 from models.address import Address
 from models.order import Order
 from models.wishlist import Wishlist
+from models.favorite import Favorite
 from models.blog import Article
 from models.faq import FAQ
 from models.banner import Banner
@@ -46,6 +47,7 @@ class Database:
                 Address,
                 Order,
                 Wishlist,
+                Favorite,
                 Article,
                 FAQ,
                 Banner,
