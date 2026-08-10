@@ -17,12 +17,15 @@ from core.database import db
 @pytest_asyncio.fixture(scope="session", autouse=False)
 async def init_test_db():
     """Initialize MongoDB connection for integration tests."""
-    await db.connect_db()
+    try:
+        await db.connect_db()
+    except Exception as e:
+        print(f"Test DB connection skipped or failed: {e}")
     yield
 
 
 @pytest_asyncio.fixture
-async def async_client():
+async def async_client(init_test_db):
     """Async HTTP Client for testing FastAPI endpoints."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:

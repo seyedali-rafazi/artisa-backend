@@ -15,6 +15,7 @@ from schemas.admin import (
     OrderStatusUpdateRequest,
     AdminCreateRequest,
 )
+from schemas.comment import CommentAdminUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -279,3 +280,58 @@ async def list_audit_logs(
 ):
     """List audit trail logs (SUPER_ADMIN only)."""
     return await AdminService.list_audit_logs(page=page, limit=limit, search=search)
+
+
+# ─── 7. COMMENT MANAGEMENT ─────────────────────────────────────────────────
+
+
+@router.get("/comments")
+async def list_comments(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    search: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    product_id: Optional[str] = None,
+    admin_user: User = Depends(require_admin),
+):
+    """List paginated comments for moderation."""
+    return await AdminService.list_comments(
+        page=page,
+        limit=limit,
+        search=search,
+        status_filter=status_filter,
+        product_id=product_id,
+    )
+
+
+@router.patch("/comments/{comment_id}")
+async def update_comment_status(
+    comment_id: str,
+    payload: CommentAdminUpdate,
+    request: Request,
+    admin_user: User = Depends(require_admin),
+):
+    """Moderate comment status or content."""
+    comment = await AdminService.update_comment_status(
+        admin_user=admin_user,
+        comment_id=comment_id,
+        status_val=payload.status,
+        text=payload.text,
+        rating=payload.rating,
+        request=request,
+    )
+    return {"message": "وضعیت نظر با موفقیت بروزرسانی شد", "status": comment.status}
+
+
+@router.delete("/comments/{comment_id}")
+async def delete_comment(
+    comment_id: str,
+    request: Request,
+    admin_user: User = Depends(require_admin),
+):
+    """Soft delete a comment as admin."""
+    await AdminService.delete_comment(
+        admin_user=admin_user, comment_id=comment_id, request=request
+    )
+    return {"message": "نظر با موفقیت حذف شد"}
+

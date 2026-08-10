@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from models.user import User, RoleEnum
 from models.product import Product
 from models.order import Order
+from models.comment import Comment
 from models.audit_log import AuditLog
 from schemas.admin import (
     DashboardStatsResponse,
@@ -704,3 +705,135 @@ class AdminService:
             "limit": limit,
             "total_pages": total_pages,
         }
+
+    # ─────────────────── COMMENT MANAGEMENT ───────────────────
+
+    @staticmethod
+    async def list_comments(
+        page: int = 1,
+        limit: int = 10,
+        search: Optional[str] = None,
+        status_filter: Optional[str] = None,
+        product_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Fetch paginated comments for administration."""
+        skip = (page - 1) * limit
+        query = Comment.find(Comment.is_deleted == False).sort("-created_at")
+
+        all_comments = await query.to_list()
+        all_products = await Product.all().to_list()
+        product_map = {str(p.id): p.name for p in all_products}
+
+        filtered = []
+        for c in all_comments:
+            if product_id and c.productId != product_id:
+                continue
+            if status_filter and c.status != status_filter:
+                continue
+            if search:
+                s = search.lower()
+                p_name = product_map.get(c.productId, "").lower()
+                user_name = (c.userName or "").lower()
+                text_val = (c.text or "").lower()
+                if s not in p_name and s not in user_name and s not in text_val:
+                    continue
+            filtered.append(c)
+
+        total = len(filtered)
+        paginated = filtered[skip : skip + limit]
+
+        items = []
+        for c in paginated:
+            items.append({
+                "id": str(c.id),
+                "productId": c.productId,
+                "productName": product_map.get(c.productId, "محصول حذف شده"),
+                "userId": c.userId,
+                "userName": c.userName,
+                "userEmail": c.userEmail,
+                "text": c.text,
+                "rating": c.rating,
+                "status": c.status,
+                "date": c.date,
+                "created_at": c.created_at,
+                "moderated_by": c.moderated_by,
+                "moderated_at": c.moderated_at,
+            })
+
+        total_pages = (total + limit - 1) // limit if limit > 0 else 1
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+        }
+
+    @staticmethod
+    async def update_comment_status(
+        admin_user: User,
+        comment_id: str,
+        status_val: Optional[str],
+        text: Optional[str],
+        rating: Optional[int],
+        request: Request,
+    ) -> Comment:
+        """Moderate status or edit comment as Admin."""
+        try:
+            comment = await Comment.get(PydanticObjectId(comment_id))
+        except Exception:
+            comment = None
+
+        if not comment or comment.is_deleted:
+            raise HTTPException(status_code=404, detail="نظر مورد نظر یافت نشد")
+
+        old_status = comment.status
+        if status_val:
+            comment.status = status_val
+        if text:
+            comment.text = text
+        if rating:
+            comment.rating = rating
+
+        comment.moderated_by = admin_user.name
+        comment.moderated_at = datetime.utcnow()
+        comment.updated_at = datetime.utcnow()
+        await comment.save()
+
+        await AuditLogService.log_action(
+            user=admin_user,
+            action="UPDATE_COMMENT_STATUS",
+            resource=f"comment_{comment_id}",
+            details={"old_status": old_status, "new_status": comment.status, "product_id": comment.productId},
+            request=request,
+        )
+
+        return comment
+
+    @staticmethod
+    async def delete_comment(
+        admin_user: User, comment_id: str, request: Request
+    ) -> bool:
+        """Soft delete a comment as Admin."""
+        try:
+            comment = await Comment.get(PydanticObjectId(comment_id))
+        except Exception:
+            comment = None
+
+        if not comment or comment.is_deleted:
+            raise HTTPException(status_code=404, detail="نظر مورد نظر یافت نشد")
+
+        comment.is_deleted = True
+        comment.updated_at = datetime.utcnow()
+        await comment.save()
+
+        await AuditLogService.log_action(
+            user=admin_user,
+            action="DELETE_COMMENT",
+            resource=f"comment_{comment_id}",
+            details={"product_id": comment.productId, "author": comment.userName},
+            request=request,
+        )
+
+        return True
+

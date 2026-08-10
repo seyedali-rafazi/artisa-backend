@@ -113,7 +113,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(users_router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(products_router, prefix="/api/v1/products", tags=["Products"])
-app.include_router(comments_router, prefix="/api/v1/products", tags=["Comments"])
+app.include_router(comments_router, prefix="/api/v1", tags=["Comments"])
 app.include_router(addresses_router, prefix="/api/v1/addresses", tags=["Addresses"])
 app.include_router(orders_router, prefix="/api/v1/orders", tags=["Orders"])
 app.include_router(wishlist_router, prefix="/api/v1/wishlist", tags=["Wishlist"])
