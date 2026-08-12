@@ -4,6 +4,14 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class OrderItemCreate(BaseModel):
+    id: str
+    quantity: int = Field(gt=0, description="تعداد سفارش باید حداقل ۱ باشد")
+    name: Optional[str] = None
+    price: Optional[float] = None
+    image: Optional[str] = None
+
+
 class OrderItemSchema(BaseModel):
     id: str
     name: str
@@ -24,8 +32,12 @@ class OrderCreate(BaseModel):
     phone: str
     postalCode: Optional[str] = None
     address: str
-    paymentMethod: str = "online"  # online, card
-    items: List[OrderItemSchema]
+    paymentMethod: str = "card"  # online, card
+    items: List[OrderItemCreate]
+
+
+class PaymentRejectPayload(BaseModel):
+    rejectionReason: Optional[str] = None
 
 
 class OrderResponse(BaseModel):
@@ -35,6 +47,8 @@ class OrderResponse(BaseModel):
     totalPrice: float
     paymentStatus: str
     paymentMethod: str
+    receiptUrl: Optional[str] = None
+    rejectionReason: Optional[str] = None
     items: List[OrderItemSchema]
     shippingAddress: Optional[ShippingAddressSchema] = None
 
@@ -48,6 +62,10 @@ class TrackingStep(BaseModel):
 class OrderTrackingResponse(BaseModel):
     orderId: str
     status: str
+    paymentStatus: str
     date: str
     totalPrice: float
+    receiptUrl: Optional[str] = None
+    rejectionReason: Optional[str] = None
     steps: List[TrackingStep]
+

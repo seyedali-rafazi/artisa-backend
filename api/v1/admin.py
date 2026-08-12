@@ -17,6 +17,8 @@ from schemas.admin import (
 )
 from schemas.comment import CommentAdminUpdate
 
+from schemas.order import PaymentRejectPayload
+
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
@@ -226,6 +228,42 @@ async def update_order_status(
         request=request,
     )
     return {"message": "وضعیت سفارش بروزرسانی شد", "status": order.status}
+
+
+@router.post("/orders/{order_id}/approve-payment")
+async def approve_order_payment(
+    order_id: str,
+    request: Request,
+    admin_user: User = Depends(require_admin),
+):
+    """Approve card-to-card payment receipt."""
+    order = await AdminService.approve_order_payment(
+        admin_user=admin_user, order_id=order_id, request=request
+    )
+    return {
+        "message": "پرداخت با موفقیت تایید شد و وضعیت سفارش به در حال پردازش تغییر یافت",
+        "paymentStatus": order.paymentStatus,
+        "status": order.status,
+    }
+
+
+@router.post("/orders/{order_id}/reject-payment")
+async def reject_order_payment(
+    order_id: str,
+    payload: Optional[PaymentRejectPayload] = None,
+    request: Request = None,
+    admin_user: User = Depends(require_admin),
+):
+    """Reject card-to-card payment receipt."""
+    reason = payload.rejectionReason if payload else None
+    order = await AdminService.reject_order_payment(
+        admin_user=admin_user, order_id=order_id, rejection_reason=reason, request=request
+    )
+    return {
+        "message": "پرداخت رد شد و دلیل رد به کاربر اطلاع‌رسانی خواهد شد",
+        "paymentStatus": order.paymentStatus,
+        "rejectionReason": order.rejectionReason,
+    }
 
 
 # ─── 5. ADMIN MANAGEMENT (SUPER_ADMIN ONLY) ─────────────────────────────────

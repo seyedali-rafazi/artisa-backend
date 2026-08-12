@@ -572,6 +572,104 @@ class AdminService:
 
         return order
 
+    @staticmethod
+    async def approve_order_payment(
+        admin_user: User,
+        order_id: str,
+        request: Request,
+    ) -> Order:
+        """Approve card-to-card payment receipt, update order status to processing, and decrement product stock."""
+        clean_id = order_id.strip()
+        if not clean_id.startswith("ORD-") and clean_id.isdigit():
+            clean_id = f"ORD-{clean_id}"
+
+        order = await Order.find_one(Order.orderId == clean_id)
+        if not order:
+            try:
+                order = await Order.get(PydanticObjectId(order_id))
+            except Exception:
+                order = None
+
+        if not order:
+            raise HTTPException(status_code=404, detail="سفارش یافت نشد")
+
+        if order.paymentStatus == "payment_approved":
+            raise HTTPException(
+                status_code=400,
+                detail="این پرداخت قبلاً تایید شده است و امکان تایید مجدد وجود ندارد.",
+            )
+
+        old_payment_status = order.paymentStatus
+        order.paymentStatus = "payment_approved"
+        order.status = "processing"
+        order.approved_at = datetime.utcnow()
+        order.updated_at = datetime.utcnow()
+        await order.save()
+
+        # Safely decrement stock quantity for each ordered item
+        for item in order.items:
+            try:
+                p = await Product.get(PydanticObjectId(item.id))
+            except Exception:
+                p = None
+            if not p:
+                p = await Product.find_one(Product.id == item.id)
+
+            if p:
+                current_stock = getattr(p, "stock_quantity", 100)
+                p.stock_quantity = max(0, current_stock - item.quantity)
+                p.updated_at = datetime.utcnow()
+                await p.save()
+
+        await AuditLogService.log_action(
+            user=admin_user,
+            action="APPROVE_PAYMENT",
+            resource=f"order_{order.orderId}",
+            details={"old_payment_status": old_payment_status, "total_price": order.totalPrice},
+            request=request,
+        )
+
+        return order
+
+    @staticmethod
+    async def reject_order_payment(
+        admin_user: User,
+        order_id: str,
+        rejection_reason: Optional[str],
+        request: Request,
+    ) -> Order:
+        """Reject card-to-card payment receipt with reason."""
+        clean_id = order_id.strip()
+        if not clean_id.startswith("ORD-") and clean_id.isdigit():
+            clean_id = f"ORD-{clean_id}"
+
+        order = await Order.find_one(Order.orderId == clean_id)
+        if not order:
+            try:
+                order = await Order.get(PydanticObjectId(order_id))
+            except Exception:
+                order = None
+
+        if not order:
+            raise HTTPException(status_code=404, detail="سفارش یافت نشد")
+
+        old_payment_status = order.paymentStatus
+        order.paymentStatus = "payment_rejected"
+        order.rejectionReason = rejection_reason or "فیش واریزی توسط مدیریت رد شد. لطفاً فیش معتبر جدید بارگذاری کنید."
+        order.rejected_at = datetime.utcnow()
+        order.updated_at = datetime.utcnow()
+        await order.save()
+
+        await AuditLogService.log_action(
+            user=admin_user,
+            action="REJECT_PAYMENT",
+            resource=f"order_{order.orderId}",
+            details={"old_payment_status": old_payment_status, "rejection_reason": order.rejectionReason},
+            request=request,
+        )
+
+        return order
+
     # ─────────────────── ADMIN MANAGEMENT (SUPER_ADMIN ONLY) ───────────────────
 
     @staticmethod

@@ -27,10 +27,14 @@ class Order(Document):
     orderId: Indexed(str, unique=True)  # type: ignore e.g. "ORD-10042" or "654321"
     userId: Optional[str] = None
     date: str = Field(default_factory=lambda: datetime.now().strftime("%Y/%m/%d"))
-    status: str = "pending"  # pending, paid, processing, shipped, delivered, cancelled, refunded
+    status: str = "pending"  # pending, processing, shipped, delivered, cancelled, completed
     totalPrice: float
-    paymentStatus: str = "paid"  # paid, unpaid, refunded
-    paymentMethod: str = "online"  # online, card
+    paymentStatus: str = "pending_payment"  # pending_payment, payment_pending_review, payment_approved, payment_rejected
+    paymentMethod: str = "card"  # card, online
+    receiptUrl: Optional[str] = None
+    rejectionReason: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    rejected_at: Optional[datetime] = None
     items: List[OrderItem] = Field(default_factory=list)
     shippingAddress: Optional[ShippingAddress] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -38,3 +42,4 @@ class Order(Document):
 
     class Settings:
         name = "orders"
+
