@@ -714,6 +714,7 @@ class AdminService:
         limit: int = 10,
         search: Optional[str] = None,
         status_filter: Optional[str] = None,
+        type_filter: Optional[str] = None,
         product_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Fetch paginated comments for administration."""
@@ -730,6 +731,12 @@ class AdminService:
                 continue
             if status_filter and c.status != status_filter:
                 continue
+            if type_filter:
+                c_type = getattr(c, "type", "comment") or "comment"
+                if type_filter == "comment" and c_type != "comment":
+                    continue
+                if type_filter == "question" and c_type != "question":
+                    continue
             if search:
                 s = search.lower()
                 p_name = product_map.get(c.productId, "").lower()
@@ -747,12 +754,15 @@ class AdminService:
             items.append({
                 "id": str(c.id),
                 "productId": c.productId,
-                "productName": product_map.get(c.productId, "محصول حذف شده"),
+                "productName": product_map.get(c.productId, "محصول آرتیسا"),
                 "userId": c.userId,
                 "userName": c.userName,
                 "userEmail": c.userEmail,
                 "text": c.text,
                 "rating": c.rating,
+                "type": getattr(c, "type", "comment") or "comment",
+                "reply": getattr(c, "reply", None),
+                "replyDate": getattr(c, "replyDate", None),
                 "status": c.status,
                 "date": c.date,
                 "created_at": c.created_at,
@@ -773,12 +783,14 @@ class AdminService:
     async def update_comment_status(
         admin_user: User,
         comment_id: str,
-        status_val: Optional[str],
-        text: Optional[str],
-        rating: Optional[int],
-        request: Request,
+        status_val: Optional[str] = None,
+        text: Optional[str] = None,
+        rating: Optional[int] = None,
+        type_val: Optional[str] = None,
+        reply: Optional[str] = None,
+        request: Request = None,
     ) -> Comment:
-        """Moderate status or edit comment as Admin."""
+        """Moderate status, add reply, or edit comment as Admin."""
         try:
             comment = await Comment.get(PydanticObjectId(comment_id))
         except Exception:
@@ -794,19 +806,27 @@ class AdminService:
             comment.text = text
         if rating:
             comment.rating = rating
+        if type_val:
+            comment.type = type_val
+
+        if reply is not None:
+            comment.reply = reply
+            comment.replyDate = datetime.now().strftime("%Y/%m/%d")
+            comment.status = "approved"
 
         comment.moderated_by = admin_user.name
         comment.moderated_at = datetime.utcnow()
         comment.updated_at = datetime.utcnow()
         await comment.save()
 
-        await AuditLogService.log_action(
-            user=admin_user,
-            action="UPDATE_COMMENT_STATUS",
-            resource=f"comment_{comment_id}",
-            details={"old_status": old_status, "new_status": comment.status, "product_id": comment.productId},
-            request=request,
-        )
+        if request:
+            await AuditLogService.log_action(
+                user=admin_user,
+                action="UPDATE_COMMENT_STATUS",
+                resource=f"comment_{comment_id}",
+                details={"old_status": old_status, "new_status": comment.status, "product_id": comment.productId, "reply": reply},
+                request=request,
+            )
 
         return comment
 

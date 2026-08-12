@@ -15,6 +15,9 @@ class Comment(Document):
     userEmail: Optional[str] = None
     text: str
     rating: int = Field(default=5, ge=1, le=5)
+    type: str = "comment"  # comment or question
+    reply: Optional[str] = None
+    replyDate: Optional[str] = None
     status: str = "approved"  # approved, pending, rejected
     is_deleted: bool = False
     moderated_by: Optional[str] = None

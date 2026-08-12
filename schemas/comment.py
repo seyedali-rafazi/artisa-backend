@@ -7,11 +7,12 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class CommentCreate(BaseModel):
-    """Payload for creating a product comment/review."""
+    """Payload for creating a product comment/review or question."""
 
     text: str = Field(..., min_length=3, max_length=1000, description="Comment text")
     rating: int = Field(default=5, ge=1, le=5, description="Rating from 1 to 5")
     name: Optional[str] = Field(None, max_length=100)
+    type: Optional[str] = Field("comment", description="comment or question")
 
     @field_validator("text", mode="before")
     @classmethod
@@ -50,6 +51,8 @@ class CommentAdminUpdate(BaseModel):
     status: Optional[str] = Field(None, description="approved, pending, or rejected")
     text: Optional[str] = Field(None, min_length=3, max_length=1000)
     rating: Optional[int] = Field(None, ge=1, le=5)
+    type: Optional[str] = Field(None, description="comment or question")
+    reply: Optional[str] = Field(None, description="Admin reply to comment/question")
 
     @field_validator("status")
     @classmethod
@@ -69,6 +72,9 @@ class CommentResponse(BaseModel):
     userEmail: Optional[str] = None
     text: str
     rating: int
+    type: Optional[str] = "comment"
+    reply: Optional[str] = None
+    replyDate: Optional[str] = None
     status: str = "approved"
     date: str
     created_at: Optional[datetime] = None

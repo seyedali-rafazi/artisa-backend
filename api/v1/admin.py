@@ -291,6 +291,7 @@ async def list_comments(
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    type_filter: Optional[str] = Query(None, alias="type"),
     product_id: Optional[str] = None,
     admin_user: User = Depends(require_admin),
 ):
@@ -300,6 +301,7 @@ async def list_comments(
         limit=limit,
         search=search,
         status_filter=status_filter,
+        type_filter=type_filter,
         product_id=product_id,
     )
 
@@ -311,16 +313,24 @@ async def update_comment_status(
     request: Request,
     admin_user: User = Depends(require_admin),
 ):
-    """Moderate comment status or content."""
+    """Moderate comment status, add reply, or edit content."""
     comment = await AdminService.update_comment_status(
         admin_user=admin_user,
         comment_id=comment_id,
         status_val=payload.status,
         text=payload.text,
         rating=payload.rating,
+        type_val=payload.type,
+        reply=payload.reply,
         request=request,
     )
-    return {"message": "وضعیت نظر با موفقیت بروزرسانی شد", "status": comment.status}
+    return {
+        "message": "وضعیت نظر با موفقیت بروزرسانی شد",
+        "status": comment.status,
+        "reply": comment.reply,
+        "replyDate": comment.replyDate,
+        "type": getattr(comment, "type", "comment"),
+    }
 
 
 @router.delete("/comments/{comment_id}")
