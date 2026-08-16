@@ -62,7 +62,7 @@ def build_user_response(user: User) -> dict:
     summary="Register a new user (Unverified)",
     dependencies=[Depends(auth_general_rate_limiter)],
 )
-async def register(payload: UserRegister, request: Request):
+async def register(payload: UserRegister, request: Request, response: Response):
     """Register a new account and send 4-digit email verification code."""
     res = await AuthService.register_user(
         name=payload.name,
@@ -74,6 +74,7 @@ async def register(payload: UserRegister, request: Request):
         data=res,
         message=res["message"],
         status_code=status.HTTP_201_CREATED,
+        response=response,
     )
 
 

@@ -17,20 +17,23 @@ class APIResponse(BaseModel, Generic[T]):
     errors: Optional[List[Any]] = None
 
 
+from fastapi import Response
+
+
 def success_response(
-    data: Any = None, message: str = "عملیات با موفقیت انجام شد", status_code: int = 200
-) -> JSONResponse:
-    """Return a standard success response."""
-    return JSONResponse(
-        status_code=status_code,
-        content=jsonable_encoder(
-            {
-                "success": True,
-                "message": message,
-                "data": data,
-            }
-        ),
-    )
+    data: Any = None,
+    message: str = "عملیات با موفقیت انجام شد",
+    status_code: int = 200,
+    response: Optional[Response] = None,
+) -> dict:
+    """Return a standard success response dict, preserving cookies on the response object."""
+    if response is not None:
+        response.status_code = status_code
+    return {
+        "success": True,
+        "message": message,
+        "data": data,
+    }
 
 
 def error_response(
