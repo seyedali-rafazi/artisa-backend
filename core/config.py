@@ -76,8 +76,8 @@ class Settings(BaseSettings):
     #                  (requires COOKIE_SECURE=True, per browser spec).
     # COOKIE_DOMAIN  — optional, e.g. ".bilitiko.com" to share the cookie across
     #                  subdomains. Leave unset for a host-only cookie.
-    COOKIE_SECURE: bool = config("COOKIE_SECURE", default=True, cast=bool)
-    COOKIE_SAMESITE: str = config("COOKIE_SAMESITE", default="none", cast=str)
+    COOKIE_SECURE: bool = config("COOKIE_SECURE", default=False if config("DEBUG", default=True, cast=bool) else True, cast=bool)
+    COOKIE_SAMESITE: str = config("COOKIE_SAMESITE", default="lax", cast=str)
     COOKIE_DOMAIN: str = config("COOKIE_DOMAIN", default="", cast=str)
 
     @property

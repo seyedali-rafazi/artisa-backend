@@ -26,7 +26,8 @@ ACCESS_TOKEN_COOKIE = "access_token"
 REFRESH_TOKEN_COOKIE = "refresh_token"
 CSRF_COOKIE = "csrf_token"
 CSRF_HEADER = "x-csrf-token"
-REFRESH_COOKIE_PATH = "/api/v1/auth"
+REFRESH_COOKIE_PATH = "/"
+
 
 
 # ─── Token Generation & Hashing ───────────────────────────────────────────────
