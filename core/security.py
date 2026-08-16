@@ -1,23 +1,23 @@
-"""Security utilities for authentication and authorization.
+"""Security utilities for production-grade authentication and authorization.
 
-Authentication is cookie-based:
-  - `access_token`  / `refresh_token` are httpOnly cookies, so they can never
-    be read by JavaScript (protects against token theft via XSS).
-  - `csrf_token` is a *non*-httpOnly cookie used for the double-submit CSRF
-    check on state-changing requests (see `verify_csrf`).
-
-As a convenience for non-browser API clients (e.g. Postman/mobile), an
-`Authorization: Bearer <token>` header is still accepted as a fallback when
-no cookie is present. Browser requests from the frontend never need to set
-this header — the cookie is sent automatically.
+Authentication Architecture:
+  - Access Token: Short-lived (15 min) JWT stored in client application memory.
+    Sent via `Authorization: Bearer <token>` header.
+  - Refresh Token: High-entropy opaque string stored only as SHA-256 hash in DB.
+    Delivered via HttpOnly, Secure, SameSite cookie scoped to `/api/v1/auth`.
+  - CSRF Token: Non-httpOnly cookie + `X-CSRF-Token` header for double-submit
+    validation on state-changing requests.
 """
 
+import hashlib
 import secrets
+import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from jose import JWTError, jwt
+from beanie import PydanticObjectId
 from models.user import User
 
 from core.config import settings
@@ -26,39 +26,48 @@ ACCESS_TOKEN_COOKIE = "access_token"
 REFRESH_TOKEN_COOKIE = "refresh_token"
 CSRF_COOKIE = "csrf_token"
 CSRF_HEADER = "x-csrf-token"
+REFRESH_COOKIE_PATH = "/api/v1/auth"
 
 
-# ─── Token creation ─────────────────────────────────────────────────────────
+# ─── Token Generation & Hashing ───────────────────────────────────────────────
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    """Create JWT access token."""
-    to_encode = data.copy()
+def create_access_token(
+    user_id: str,
+    session_id: Optional[str] = None,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """Create short-lived JWT access token with minimal essential claims."""
+    now = datetime.utcnow()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = now + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(
-            minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({"exp": expire, "type": "access"})
+    payload: Dict[str, Any] = {
+        "sub": str(user_id),
+        "type": "access",
+        "iat": int(now.timestamp()),
+        "exp": int(expire.timestamp()),
+        "jti": uuid.uuid4().hex,
+    }
+    if session_id:
+        payload["session_id"] = str(session_id)
+
     encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
     return encoded_jwt
 
 
-def create_refresh_token(data: dict) -> str:
-    """Create JWT refresh token."""
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(
-        minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES
-    )
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(
-        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
-    return encoded_jwt
+def generate_refresh_token() -> str:
+    """Generate a cryptographically secure, high-entropy random refresh token."""
+    return secrets.token_urlsafe(64)
+
+
+def hash_token(token: str) -> str:
+    """Compute SHA-256 hash of token for secure database storage and lookup."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def generate_csrf_token() -> str:
@@ -66,28 +75,28 @@ def generate_csrf_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def verify_token(token: str, expected_type: Optional[str] = None) -> dict:
-    """Verify and decode a JWT, optionally enforcing its `type` claim.
+# ─── Token Verification ───────────────────────────────────────────────────────
 
-    Enforcing `expected_type` matters: without it, a (longer-lived) refresh
-    token could be replayed directly against protected endpoints as if it
-    were a (short-lived) access token.
-    """
+
+def verify_token(token: str, expected_type: Optional[str] = "access") -> dict:
+    """Verify and decode a JWT, enforcing allowed algorithms and token type."""
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token,
+            settings.SECRET_KEY,
+            algorithms=settings.ALLOWED_ALGORITHMS,
         )
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail="اعتبار سنجی توکن ناموفق بود یا منقضی شده است",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if expected_type and payload.get("type") != expected_type:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token type",
+            detail="نوع توکن نامعتبر است",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -95,165 +104,172 @@ def verify_token(token: str, expected_type: Optional[str] = None) -> dict:
 
 
 def _extract_access_token(request: Request) -> Optional[str]:
-    """Read the access token from the httpOnly cookie, falling back to an
-    `Authorization: Bearer` header for non-browser API clients."""
-    token = request.cookies.get(ACCESS_TOKEN_COOKIE)
-    if token:
-        return token
-
+    """Extract access token prioritizing Authorization header over cookie fallback."""
     auth_header = request.headers.get("authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
-        return auth_header[7:]
+        return auth_header[7:].strip()
+
+    # Fallback to cookie for browser transitions
+    cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
+    if cookie_token:
+        return cookie_token
 
     return None
 
 
-# ─── Current-user dependencies ──────────────────────────────────────────────
+# ─── Current-User Dependencies ───────────────────────────────────────────────
 
 
 async def get_current_user(request: Request) -> User:
-    """Get current authenticated user from the access-token cookie."""
+    """Extract and validate current authenticated user from request."""
     token = _extract_access_token(request)
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail="احراز هویت انجام نشده است",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     payload = verify_token(token, expected_type="access")
-
     user_id: str = payload.get("sub")
-    if user_id is None:
+    if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail="شناسه کاربر در توکن نامعتبر است",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user = await User.get(user_id)
+    try:
+        user = await User.get(PydanticObjectId(user_id))
+    except Exception:
+        user = await User.find_one(User.id == user_id)
+
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="کاربر یافت نشد",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="حساب کاربری شما غیرفعال شده است",
         )
 
     return user
 
 
 async def get_optional_user(request: Request) -> Optional[User]:
-    """Return the authenticated user or None if no valid token is present."""
+    """Return authenticated user or None if no valid token is provided."""
     token = _extract_access_token(request)
     if not token:
         return None
     try:
         payload = verify_token(token, expected_type="access")
-    except HTTPException:
-        return None
-    user_id: str = payload.get("sub")
-    if not user_id:
-        return None
-    try:
-        from beanie import PydanticObjectId
-
+        user_id: str = payload.get("sub")
+        if not user_id:
+            return None
         user = await User.get(PydanticObjectId(user_id))
+        if not user or not user.is_active:
+            return None
+        return user
     except Exception:
         return None
-    if not user or not user.is_active:
-        return None
-    return user
 
 
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    """Get current active user."""
+    """Validate current user is active."""
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
-
-
-async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
-    """Get current superuser."""
-    if not current_user.is_superuser:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="حساب کاربری غیرفعال است",
         )
     return current_user
 
 
-# ─── Cookie helpers ─────────────────────────────────────────────────────────
+async def get_current_superuser(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Validate current user is a superuser."""
+    if not (current_user.is_superuser or current_user.is_super_admin_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="سطح دسترسی لازم برای این عملیات را ندارید",
+        )
+    return current_user
+
+
+# ─── Cookie Helpers ──────────────────────────────────────────────────────────
 
 
 def set_auth_cookies(
-    response: Response, access_token: str, refresh_token: str, csrf_token: str
+    response: Response,
+    refresh_token: str,
+    csrf_token: Optional[str] = None,
+    access_token: Optional[str] = None,
 ) -> None:
-    """Attach httpOnly auth cookies + a JS-readable CSRF cookie to a response."""
+    """Set secure HttpOnly refresh token cookie and CSRF cookie."""
     common = dict(
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         domain=settings.cookie_domain,
     )
 
-    response.set_cookie(
-        key=ACCESS_TOKEN_COOKIE,
-        value=access_token,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        httponly=True,
-        path="/",
-        **common,
-    )
-    # Scoped to /api/v1/users so the long-lived refresh token is only ever
-    # sent to the refresh/logout endpoints, not on every API call.
+    # Scoped to /api/v1/auth so refresh token is only sent to auth routes
     response.set_cookie(
         key=REFRESH_TOKEN_COOKIE,
         value=refresh_token,
         max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
         httponly=True,
-        path="/api/v1/users",
+        path=REFRESH_COOKIE_PATH,
         **common,
     )
-    # Deliberately NOT httpOnly: the frontend reads this value and echoes it
-    # back as the `X-CSRF-Token` header on state-changing requests
-    # (double-submit cookie pattern). It is useless without also having a
-    # valid session cookie, so exposing it to JS is safe.
-    response.set_cookie(
-        key=CSRF_COOKIE,
-        value=csrf_token,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
-        httponly=False,
-        path="/",
-        **common,
-    )
+
+    # Double-submit CSRF cookie (non-httpOnly so JS client can read and echo in header)
+    if csrf_token:
+        response.set_cookie(
+            key=CSRF_COOKIE,
+            value=csrf_token,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            httponly=False,
+            path="/",
+            **common,
+        )
+
+    # Optional access token cookie fallback
+    if access_token:
+        response.set_cookie(
+            key=ACCESS_TOKEN_COOKIE,
+            value=access_token,
+            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            httponly=True,
+            path="/",
+            **common,
+        )
 
 
 def clear_auth_cookies(response: Response) -> None:
-    """Remove all auth cookies (used on logout)."""
+    """Delete all auth and CSRF cookies across all candidate paths."""
     common = dict(
         domain=settings.cookie_domain,
         samesite=settings.COOKIE_SAMESITE,
         secure=settings.COOKIE_SECURE,
     )
-    response.delete_cookie(key=ACCESS_TOKEN_COOKIE, path="/", **common)
+    # Refresh token paths (current + legacy paths)
+    response.delete_cookie(key=REFRESH_TOKEN_COOKIE, path=REFRESH_COOKIE_PATH, **common)
     response.delete_cookie(key=REFRESH_TOKEN_COOKIE, path="/api/v1/users", **common)
+    response.delete_cookie(key=REFRESH_TOKEN_COOKIE, path="/", **common)
+
+    # Access token and CSRF
+    response.delete_cookie(key=ACCESS_TOKEN_COOKIE, path="/", **common)
     response.delete_cookie(key=CSRF_COOKIE, path="/", **common)
 
 
 def verify_csrf(request: Request) -> None:
-    """Double-submit CSRF check for cookie-authenticated, state-changing
-    requests (POST/PUT/PATCH/DELETE).
-
-    If there is no CSRF cookie at all, the request isn't relying on an
-    ambient cookie session (e.g. an anonymous guest action, or a non-browser
-    client using the `Authorization` header), so there is no session to
-    hijack and the check is skipped.
-    """
+    """Double-submit CSRF check for state-changing cookie requests."""
     csrf_cookie = request.cookies.get(CSRF_COOKIE)
     if not csrf_cookie:
         return
@@ -262,8 +278,5 @@ def verify_csrf(request: Request) -> None:
     if not csrf_header or not secrets.compare_digest(csrf_header, csrf_cookie):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Missing or invalid CSRF token",
+            detail="توکن CSRF نامعتبر یا یافت نشد",
         )
-
-
-# Made with Bob

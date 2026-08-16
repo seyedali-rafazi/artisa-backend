@@ -16,6 +16,7 @@ from models.blog import Article
 from models.faq import FAQ
 from models.banner import Banner
 from models.audit_log import AuditLog
+from models.auth_session import AuthSession
 
 
 class Database:
@@ -52,6 +53,7 @@ class Database:
                 FAQ,
                 Banner,
                 AuditLog,
+                AuthSession,
             ],
         )
         print(f"Connected to MongoDB: {settings.MONGODB_NAME}")

@@ -1,6 +1,7 @@
-"""User Pydantic Schemas."""
+"""User and Authentication Pydantic Schemas."""
 
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -27,7 +28,9 @@ class PasswordChange(BaseModel):
 
 
 class TokenRefreshPayload(BaseModel):
-    refresh_token: Optional[str] = None
+    refresh_token: Optional[str] = Field(
+        None, description="Optional refresh token string for non-browser clients"
+    )
 
 
 class GoogleAuthRequest(BaseModel):
@@ -73,6 +76,18 @@ class UserResponse(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: Optional[str] = None
     token_type: str = "bearer"
-    user: UserResponse
+    expires_in: int = 900
+    user: Optional[UserResponse] = None
+
+
+class AuthSessionResponse(BaseModel):
+    id: str
+    token_family_id: str
+    created_at: datetime
+    expires_at: datetime
+    last_used_at: Optional[datetime] = None
+    user_agent: Optional[str] = None
+    ip_address: Optional[str] = None
+    device_info: Optional[str] = None
+    is_current: bool = False

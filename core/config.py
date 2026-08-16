@@ -18,12 +18,28 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = config("SECRET_KEY", default="artisa-secret-key-super-secure-change-in-prod-2026")
     ALGORITHM: str = "HS256"
+    ALLOWED_ALGORITHMS: List[str] = ["HS256"]
+    
+    # Short-lived Access Token (15 minutes)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = config(
-        "JWT_ACCESS_TOKEN_LIFETIME", default=1440, cast=int
+        "JWT_ACCESS_TOKEN_LIFETIME", default=15, cast=int
+    )
+    # Refresh Token Lifetime (7 days)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = config(
+        "REFRESH_TOKEN_EXPIRE_DAYS", default=7, cast=int
     )
     REFRESH_TOKEN_EXPIRE_MINUTES: int = config(
         "JWT_REFRESH_TOKEN_LIFETIME", default=10080, cast=int
     )
+    
+    # Rate Limiting
+    RATE_LIMIT_LOGIN_MAX: int = config("RATE_LIMIT_LOGIN_MAX", default=10, cast=int)
+    RATE_LIMIT_LOGIN_WINDOW_SECONDS: int = config("RATE_LIMIT_LOGIN_WINDOW_SECONDS", default=300, cast=int)
+    RATE_LIMIT_REFRESH_MAX: int = config("RATE_LIMIT_REFRESH_MAX", default=30, cast=int)
+    RATE_LIMIT_REFRESH_WINDOW_SECONDS: int = config("RATE_LIMIT_REFRESH_WINDOW_SECONDS", default=60, cast=int)
+    RATE_LIMIT_AUTH_MAX: int = config("RATE_LIMIT_AUTH_MAX", default=20, cast=int)
+    RATE_LIMIT_AUTH_WINDOW_SECONDS: int = config("RATE_LIMIT_AUTH_WINDOW_SECONDS", default=60, cast=int)
+
     GOOGLE_CLIENT_ID: str = config("GOOGLE_CLIENT_ID", default="")
     GOOGLE_CLIENT_SECRET: str = config("GOOGLE_CLIENT_SECRET", default="")
 
@@ -39,7 +55,6 @@ class Settings(BaseSettings):
     MONGODB_NAME: str = config(
         "MONGODB_NAME", default=config("DATABASE_NAME", default="artisa_db")
     )
-    MONGODB_PASSWORD: str = config("MONGODB_PASSWORD", default="")
     MONGODB_PASSWORD: str = config("MONGODB_PASSWORD", default="")
 
     # Vercel Blob (product images)
