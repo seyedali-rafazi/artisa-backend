@@ -22,11 +22,11 @@ from models.user import User
 
 from core.config import settings
 
-ACCESS_TOKEN_COOKIE = "access_token"
+ACCESS_TOKEN_COOKIE = "access_token"  # Legacy cleanup reference only
 REFRESH_TOKEN_COOKIE = "refresh_token"
 CSRF_COOKIE = "csrf_token"
 CSRF_HEADER = "x-csrf-token"
-REFRESH_COOKIE_PATH = "/"
+REFRESH_COOKIE_PATH = "/api/v1/auth"
 
 
 
@@ -105,15 +105,10 @@ def verify_token(token: str, expected_type: Optional[str] = "access") -> dict:
 
 
 def _extract_access_token(request: Request) -> Optional[str]:
-    """Extract access token prioritizing Authorization header over cookie fallback."""
+    """Extract access token strictly from the Authorization: Bearer <token> header."""
     auth_header = request.headers.get("authorization")
     if auth_header and auth_header.lower().startswith("bearer "):
         return auth_header[7:].strip()
-
-    # Fallback to cookie for browser transitions
-    cookie_token = request.cookies.get(ACCESS_TOKEN_COOKIE)
-    if cookie_token:
-        return cookie_token
 
     return None
 
@@ -210,9 +205,14 @@ def set_auth_cookies(
     response: Response,
     refresh_token: str,
     csrf_token: Optional[str] = None,
-    access_token: Optional[str] = None,
 ) -> None:
-    """Set secure HttpOnly refresh token cookie and CSRF cookie."""
+    """Set secure HttpOnly refresh token cookie and CSRF cookie.
+    
+    Security design:
+    - Refresh token: HttpOnly=True, Path=/api/v1/auth, Secure (in production), SameSite=Lax.
+    - CSRF token: Non-HttpOnly double-submit cookie on Path=/.
+    - Access tokens are NEVER set as cookies (they exist in memory only).
+    """
     common = dict(
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
@@ -236,17 +236,6 @@ def set_auth_cookies(
             value=csrf_token,
             max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
             httponly=False,
-            path="/",
-            **common,
-        )
-
-    # Optional access token cookie fallback
-    if access_token:
-        response.set_cookie(
-            key=ACCESS_TOKEN_COOKIE,
-            value=access_token,
-            max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            httponly=True,
             path="/",
             **common,
         )

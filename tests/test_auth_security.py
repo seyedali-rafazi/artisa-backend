@@ -147,14 +147,13 @@ def test_refresh_token_entropy_and_hashing():
 
 
 def test_cookie_helpers_scoping():
-    """Verify refresh token cookie is configured with restricted path and HttpOnly."""
+    """Verify refresh token cookie is configured with restricted path /api/v1/auth, HttpOnly, and NO access_token cookie is set."""
     mock_response = MagicMock()
 
     set_auth_cookies(
         response=mock_response,
         refresh_token="test_refresh_token_value",
         csrf_token="test_csrf_token_value",
-        access_token="test_access_token_value",
     )
 
     # Check set_cookie calls
@@ -163,20 +162,23 @@ def test_cookie_helpers_scoping():
 
     assert "refresh_token" in cookie_keys
     assert "csrf_token" in cookie_keys
-    assert "access_token" in cookie_keys
+    # Access token must NEVER be set in cookies
+    assert "access_token" not in cookie_keys
 
     # Find refresh_token call kwargs
     refresh_call = next(c for c in set_cookie_calls if c[1]["key"] == "refresh_token")
     assert refresh_call[1]["httponly"] is True
-    assert refresh_call[1]["path"] == REFRESH_COOKIE_PATH
+    assert refresh_call[1]["path"] == "/api/v1/auth"
+    assert REFRESH_COOKIE_PATH == "/api/v1/auth"
 
     # Find csrf_token call kwargs
     csrf_call = next(c for c in set_cookie_calls if c[1]["key"] == "csrf_token")
     assert csrf_call[1]["httponly"] is False  # Must be readable by client JS for double submit
+    assert csrf_call[1]["path"] == "/"
 
 
 def test_clear_auth_cookies():
-    """Verify clear_auth_cookies removes cookies across all relevant paths."""
+    """Verify clear_auth_cookies removes cookies across all candidate and legacy paths."""
     mock_response = MagicMock()
     clear_auth_cookies(mock_response)
 
@@ -184,6 +186,8 @@ def test_clear_auth_cookies():
     keys_and_paths = [(c[1]["key"], c[1].get("path")) for c in delete_cookie_calls]
 
     assert ("refresh_token", REFRESH_COOKIE_PATH) in keys_and_paths
+    assert ("refresh_token", "/api/v1/users") in keys_and_paths
+    assert ("refresh_token", "/") in keys_and_paths
     assert ("access_token", "/") in keys_and_paths
     assert ("csrf_token", "/") in keys_and_paths
 
@@ -373,3 +377,32 @@ async def test_sliding_window_rate_limiter():
         await limiter(mock_request)
     assert exc_info.value.status_code == status.HTTP_429_TOO_MANY_REQUESTS
     assert "Retry-After" in exc_info.value.headers
+
+
+# ─── 7. Security Headers & Clean API Contract Tests ───────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_security_headers_middleware():
+    """Verify security headers are present on responses."""
+    from fastapi.testclient import TestClient
+    from main import app
+
+    client = TestClient(app)
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.headers.get("x-content-type-options") == "nosniff"
+    assert response.headers.get("x-frame-options") == "DENY"
+    assert response.headers.get("referrer-policy") == "strict-origin-when-cross-origin"
+    assert "geolocation=()" in response.headers.get("permissions-policy", "")
+
+
+def test_auth_token_response_schema():
+    """Verify TokenResponse schema contains access_token and no duplicate token field."""
+    from schemas.user import TokenResponse
+    schema = TokenResponse.model_json_schema()
+    properties = schema.get("properties", {})
+    assert "access_token" in properties
+    assert "token" not in properties
+    assert "token_type" in properties
+    assert "expires_in" in properties

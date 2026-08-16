@@ -345,7 +345,7 @@ class AuthService:
         # Create new session
         access_token, refresh_token, _ = await cls.create_session(user, request=request)
         csrf_token = generate_csrf_token()
-        set_auth_cookies(response, refresh_token=refresh_token, csrf_token=csrf_token, access_token=access_token)
+        set_auth_cookies(response, refresh_token=refresh_token, csrf_token=csrf_token)
 
         await AuditLogService.log_action(
             user=user,
@@ -356,7 +356,7 @@ class AuthService:
         )
 
         return {
-            "token": access_token,
+            "access_token": access_token,
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "user": user,
             "message": "ایمیل شما با موفقیت تایید شد و وارد حساب شدید",
@@ -435,7 +435,7 @@ class AuthService:
         # Create session & set cookies
         access_token, refresh_token, session = await cls.create_session(user, request=request)
         csrf_token = generate_csrf_token()
-        set_auth_cookies(response, refresh_token=refresh_token, csrf_token=csrf_token, access_token=access_token)
+        set_auth_cookies(response, refresh_token=refresh_token, csrf_token=csrf_token)
 
         await AuditLogService.log_action(
             user=user,
@@ -446,7 +446,7 @@ class AuthService:
         )
 
         return {
-            "token": access_token,
+            "access_token": access_token,
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "user": user,
             "message": "ورود با موفقیت انجام شد",

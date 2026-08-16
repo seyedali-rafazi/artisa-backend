@@ -93,8 +93,7 @@ async def verify_email(
     user_data = build_user_response(res["user"])
     return success_response(
         data={
-            "access_token": res["token"],
-            "token": res["token"],  # Backward-compatible alias
+            "access_token": res["access_token"],
             "token_type": "bearer",
             "expires_in": res["expires_in"],
             "user": user_data,
@@ -130,8 +129,7 @@ async def login(response: Response, request: Request, payload: UserLogin):
     user_data = build_user_response(res["user"])
     return success_response(
         data={
-            "access_token": res["token"],
-            "token": res["token"],  # Backward-compatible alias
+            "access_token": res["access_token"],
             "token_type": "bearer",
             "expires_in": res["expires_in"],
             "user": user_data,
@@ -232,7 +230,6 @@ async def google_auth(
         response,
         refresh_token=refresh_token,
         csrf_token=csrf_token,
-        access_token=access_token,
     )
 
     await AuditLogService.log_action(
@@ -247,7 +244,6 @@ async def google_auth(
     return success_response(
         data={
             "access_token": access_token,
-            "token": access_token,
             "token_type": "bearer",
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             "user": user_data,
@@ -292,13 +288,11 @@ async def refresh_token(
         response,
         refresh_token=new_refresh_token,
         csrf_token=csrf_token,
-        access_token=new_access_token,
     )
 
     return success_response(
         data={
             "access_token": new_access_token,
-            "token": new_access_token,  # Backward-compatible alias
             "token_type": "bearer",
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         },
