@@ -13,6 +13,19 @@ from schemas.response import success_response, error_response
 router = APIRouter()
 
 
+import re
+
+def build_persian_regex(term: str) -> str:
+    """Build a flexible regex pattern matching Persian and Arabic character variants."""
+    escaped = re.escape(term.strip())
+    escaped = escaped.replace("ی", "[یي]").replace("ي", "[یي]")
+    escaped = escaped.replace("ک", "[کك]").replace("ك", "[کك]")
+    escaped = escaped.replace("آ", "[آاأإ]").replace("ا", "[آاأإ]").replace("أ", "[آاأإ]").replace("إ", "[آاأإ]")
+    escaped = escaped.replace("ه", "[هة]").replace("ة", "[هة]")
+    escaped = escaped.replace(r"\ ", r"[\s\u200c]+")
+    return escaped
+
+
 @router.get("", summary="Get products list with search, filter, sort and pagination")
 @router.get("/", include_in_schema=False)
 async def list_products(
@@ -47,15 +60,47 @@ async def list_products(
             price_query["$lte"] = maxPrice
         query_dict["price"] = price_query
 
-    # Search term matching name, category, or description
+    # Search term matching name, category, or description with smart Persian regex
     if search and search.strip():
         term = search.strip()
-        search_regex = {"$regex": term, "$options": "i"}
-        query_dict["$or"] = [
-            {"name": search_regex},
-            {"category": search_regex},
-            {"description": search_regex},
-        ]
+        tokens = [t.strip() for t in term.split() if t.strip()]
+
+        if len(tokens) <= 1:
+            pat = build_persian_regex(term)
+            reg = {"$regex": pat, "$options": "i"}
+            query_dict["$or"] = [
+                {"name": reg},
+                {"nameEn": reg},
+                {"category": reg},
+                {"categoryEn": reg},
+                {"description": reg},
+                {"descriptionEn": reg},
+            ]
+        else:
+            full_pat = build_persian_regex(term)
+            full_reg = {"$regex": full_pat, "$options": "i"}
+
+            token_filters = []
+            for t in tokens:
+                t_pat = build_persian_regex(t)
+                t_reg = {"$regex": t_pat, "$options": "i"}
+                token_filters.append({
+                    "$or": [
+                        {"name": t_reg},
+                        {"nameEn": t_reg},
+                        {"category": t_reg},
+                        {"categoryEn": t_reg},
+                        {"description": t_reg},
+                        {"descriptionEn": t_reg},
+                    ]
+                })
+
+            query_dict["$or"] = [
+                {"name": full_reg},
+                {"category": full_reg},
+                {"description": full_reg},
+                {"$and": token_filters},
+            ]
 
     # Fetch with Beanie
     find_query = Product.find(query_dict)
