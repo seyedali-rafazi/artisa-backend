@@ -16,14 +16,29 @@ router = APIRouter()
 import re
 
 def build_persian_regex(term: str) -> str:
-    """Build a flexible regex pattern matching Persian and Arabic character variants."""
-    escaped = re.escape(term.strip())
-    escaped = escaped.replace("ی", "[یي]").replace("ي", "[یي]")
-    escaped = escaped.replace("ک", "[کك]").replace("ك", "[کك]")
-    escaped = escaped.replace("آ", "[آاأإ]").replace("ا", "[آاأإ]").replace("أ", "[آاأإ]").replace("إ", "[آاأإ]")
-    escaped = escaped.replace("ه", "[هة]").replace("ة", "[هة]")
-    escaped = escaped.replace(r"\ ", r"[\s\u200c]+")
-    return escaped
+    """Build a flexible regex pattern matching Persian and Arabic character variants safely."""
+    char_map = {
+        "ی": "[یي]",
+        "ي": "[یي]",
+        "ک": "[کك]",
+        "ك": "[کك]",
+        "آ": "[آاأإ]",
+        "ا": "[آاأإ]",
+        "أ": "[آاأإ]",
+        "إ": "[آاأإ]",
+        "ه": "[هة]",
+        "ة": "[هة]",
+        " ": r"[\s\u200c]+",
+        "\u200c": r"[\s\u200c]+",
+    }
+    chars = []
+    for c in term.strip():
+        if c in char_map:
+            chars.append(char_map[c])
+        else:
+            chars.append(re.escape(c))
+    return "".join(chars)
+
 
 
 @router.get("", summary="Get products list with search, filter, sort and pagination")
