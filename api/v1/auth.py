@@ -1,8 +1,13 @@
 """Authentication Router with Short-Lived Access Tokens, Secure Refresh Tokens, and Session Management."""
 
+import logging
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+logger = logging.getLogger(__name__)
 
 from core.config import settings
 from core.security import (
@@ -160,16 +165,19 @@ async def google_auth(
             "accounts.google.com",
             "https://accounts.google.com",
         ]:
+            logger.warning("Invalid Google token issuer: %s", id_info.get("iss"))
             return error_response(
                 message="صادرکننده توکن گوگلی نامعتبر است",
                 status_code=status.HTTP_401_UNAUTHORIZED,
             )
     except ValueError as err:
+        logger.warning("Google token ValueError: %s", err)
         return error_response(
             message=f"توکن گوگلی نامعتبر یا منقضی شده است: {str(err)}",
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
-    except Exception:
+    except Exception as err:
+        logger.error("Google auth verification exception: %s", err, exc_info=True)
         return error_response(
             message="اعتبارسنجی توکن گوگلی با خطا مواجه شد",
             status_code=status.HTTP_401_UNAUTHORIZED,
