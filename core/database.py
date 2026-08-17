@@ -17,6 +17,7 @@ from models.faq import FAQ
 from models.banner import Banner
 from models.audit_log import AuditLog
 from models.auth_session import AuthSession
+from models.special_offer import SpecialOffer
 
 
 class Database:
@@ -54,6 +55,7 @@ class Database:
                 Banner,
                 AuditLog,
                 AuthSession,
+                SpecialOffer,
             ],
         )
         print(f"Connected to MongoDB: {settings.MONGODB_NAME}")

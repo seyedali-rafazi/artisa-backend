@@ -12,6 +12,7 @@ from models.faq import FAQ
 from models.banner import Banner
 from models.audit_log import AuditLog
 from models.auth_session import AuthSession
+from models.special_offer import SpecialOffer
 
 __all__ = [
     "User",
@@ -27,4 +28,5 @@ __all__ = [
     "Banner",
     "AuditLog",
     "AuthSession",
+    "SpecialOffer",
 ]

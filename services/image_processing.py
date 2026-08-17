@@ -7,7 +7,12 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Set
 
-from PIL import Image, UnidentifiedImageError
+try:
+    from PIL import Image, UnidentifiedImageError
+except ImportError:
+    Image = None
+    class UnidentifiedImageError(Exception):
+        pass
 
 logger = logging.getLogger(__name__)
 

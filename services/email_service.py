@@ -1,7 +1,10 @@
 """Email Service for sending transactional emails via Resend API."""
 
 import logging
-import resend
+try:
+    import resend
+except ImportError:
+    resend = None
 from core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,7 +16,7 @@ class EmailService:
     @staticmethod
     def _init_resend():
         """Initialize Resend API key."""
-        if settings.RESEND_API_KEY:
+        if resend and settings.RESEND_API_KEY:
             resend.api_key = settings.RESEND_API_KEY
 
     @classmethod

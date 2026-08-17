@@ -9,6 +9,13 @@ from schemas.order import OrderCreate, OrderResponse, OrderTrackingResponse
 from schemas.blog import ArticleResponse
 from schemas.faq import FAQResponse
 from schemas.banner import BannerResponse
+from schemas.special_offer import (
+    SpecialOfferCreate,
+    SpecialOfferUpdate,
+    SpecialOfferResponse,
+    SpecialOfferProductSummary,
+    PaginatedSpecialOffersResponse,
+)
 
 __all__ = [
     "APIResponse",
@@ -35,4 +42,9 @@ __all__ = [
     "ArticleResponse",
     "FAQResponse",
     "BannerResponse",
+    "SpecialOfferCreate",
+    "SpecialOfferUpdate",
+    "SpecialOfferResponse",
+    "SpecialOfferProductSummary",
+    "PaginatedSpecialOffersResponse",
 ]

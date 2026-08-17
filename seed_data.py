@@ -1,9 +1,11 @@
 """Database Seeder Script for Artisa API."""
 
 import asyncio
+from datetime import timedelta
 from passlib.context import CryptContext
 
 from core.database import db
+from core.timezone import now_utc
 from models.user import User
 from models.product import Product
 from models.comment import Comment
@@ -12,6 +14,7 @@ from models.order import Order, OrderItem, ShippingAddress
 from models.blog import Article
 from models.faq import FAQ
 from models.banner import Banner
+from models.special_offer import SpecialOffer
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -30,6 +33,7 @@ async def seed():
     await Article.delete_all()
     await FAQ.delete_all()
     await Banner.delete_all()
+    await SpecialOffer.delete_all()
 
     # Seed Admin User & Demo User
     print("Seeding Users...")
@@ -316,6 +320,25 @@ async def seed():
         order=1,
     )
     await banner1.insert()
+
+    # Seed Special Offers
+    print("Seeding Special Offers...")
+    special_products = await Product.find({"isSpecial": True}).to_list()
+    special_product_ids = [str(p.id) for p in special_products] if special_products else []
+
+    if not special_product_ids:
+        all_prods = await Product.find().limit(4).to_list()
+        special_product_ids = [str(p.id) for p in all_prods]
+
+    demo_offer = SpecialOffer(
+        title="جشنواره شگفت‌انگیز آثار منتخب",
+        description="تخفیف استثنایی تا ۴۰٪ روی پرطرفدارترین تابلوها و آثار هنری دست‌ساز برای مدت محدود",
+        product_ids=special_product_ids,
+        start_at=now_utc() - timedelta(hours=2),
+        end_at=now_utc() + timedelta(days=5, hours=14, minutes=30),
+        is_active=True,
+    )
+    await demo_offer.insert()
 
     print("Database successfully seeded!")
     await db.close_db()

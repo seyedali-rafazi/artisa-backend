@@ -3,8 +3,6 @@
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 
 from core.config import settings
 from core.security import (
