@@ -5,8 +5,13 @@ Guarantees accurate IANA timezone handling for Asia/Tehran across all platforms.
 
 from datetime import datetime, timezone, tzinfo
 from typing import Optional, Union
-import dateutil.parser
-from dateutil import tz
+
+try:
+    import dateutil.parser
+    from dateutil import tz
+except ImportError:
+    dateutil = None
+    tz = None
 
 
 def get_tehran_timezone() -> tzinfo:
@@ -19,9 +24,14 @@ def get_tehran_timezone() -> tzinfo:
         pass
 
     # Fallback to dateutil.tz which supports IANA tzfile/zone data cross-platform
-    tehran_tz = tz.gettz("Asia/Tehran")
-    if tehran_tz is not None:
-        return tehran_tz
+    if tz is not None:
+        tehran_tz = tz.gettz("Asia/Tehran")
+        if tehran_tz is not None:
+            return tehran_tz
+
+    # Final fallback to standard fixed offset (+03:30) if neither zoneinfo nor dateutil available
+    from datetime import timedelta
+    return timezone(timedelta(hours=3, minutes=30), "Asia/Tehran")
 
     # Safety fallback (should never occur with dateutil installed)
     raise RuntimeError("Unable to load IANA Asia/Tehran timezone")
@@ -48,7 +58,10 @@ def to_utc(dt_val: Union[datetime, str]) -> datetime:
     and converted to UTC.
     """
     if isinstance(dt_val, str):
-        parsed = dateutil.parser.isoparse(dt_val)
+        if dateutil is not None:
+            parsed = dateutil.parser.isoparse(dt_val)
+        else:
+            parsed = datetime.fromisoformat(dt_val.replace("Z", "+00:00"))
     elif isinstance(dt_val, datetime):
         parsed = dt_val
     else:

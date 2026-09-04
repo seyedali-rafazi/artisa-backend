@@ -7,7 +7,13 @@ from schemas.comment import CommentCreate, CommentResponse
 from schemas.address import AddressCreate, AddressUpdate, AddressResponse
 from schemas.order import OrderCreate, OrderResponse, OrderTrackingResponse
 from schemas.blog import ArticleResponse
-from schemas.faq import FAQResponse
+from schemas.faq import (
+    FAQResponse,
+    FAQCreateRequest,
+    FAQUpdateRequest,
+    FAQReorderRequest,
+    FAQReorderItem,
+)
 from schemas.banner import BannerResponse
 from schemas.special_offer import (
     SpecialOfferCreate,
@@ -41,6 +47,10 @@ __all__ = [
     "OrderTrackingResponse",
     "ArticleResponse",
     "FAQResponse",
+    "FAQCreateRequest",
+    "FAQUpdateRequest",
+    "FAQReorderRequest",
+    "FAQReorderItem",
     "BannerResponse",
     "SpecialOfferCreate",
     "SpecialOfferUpdate",
