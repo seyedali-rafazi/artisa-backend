@@ -28,6 +28,8 @@ class BannerTextElement(BaseModel):
     letterSpacing: Optional[float] = Field(default=0.0, description="Letter spacing in px")
     textShadow: Optional[str] = Field(default=None, description="CSS text-shadow string")
     position: BannerPosition = Field(default_factory=BannerPosition)
+    scaleX: Optional[float] = Field(default=1.0, ge=0.1, le=10.0, description="Horizontal scale multiplier")
+    scaleY: Optional[float] = Field(default=1.0, ge=0.1, le=10.0, description="Vertical scale multiplier")
 
 
 class Banner(Document):

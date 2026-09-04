@@ -50,6 +50,8 @@ def serialize_banner(b: Banner) -> BannerResponse:
                     letterSpacing=getattr(t, "letterSpacing", 0.0),
                     textShadow=getattr(t, "textShadow", None),
                     position=pos_schema,
+                    scaleX=getattr(t, "scaleX", 1.0) or 1.0,
+                    scaleY=getattr(t, "scaleY", 1.0) or 1.0,
                 )
             )
 
@@ -187,6 +189,8 @@ async def admin_create_banner(
                 letterSpacing=t.letterSpacing,
                 textShadow=t.textShadow,
                 position=pos,
+                scaleX=t.scaleX if t.scaleX is not None else 1.0,
+                scaleY=t.scaleY if t.scaleY is not None else 1.0,
             )
         )
 
@@ -292,6 +296,8 @@ async def admin_update_banner(
             t_line_height = t.get("lineHeight") if isinstance(t, dict) else getattr(t, "lineHeight", 1.4)
             t_spacing = t.get("letterSpacing") if isinstance(t, dict) else getattr(t, "letterSpacing", 0.0)
             t_shadow = t.get("textShadow") if isinstance(t, dict) else getattr(t, "textShadow", None)
+            t_scale_x = t.get("scaleX", 1.0) if isinstance(t, dict) else getattr(t, "scaleX", 1.0)
+            t_scale_y = t.get("scaleY", 1.0) if isinstance(t, dict) else getattr(t, "scaleY", 1.0)
 
             new_texts.append(
                 BannerTextElement(
@@ -306,6 +312,8 @@ async def admin_update_banner(
                     letterSpacing=t_spacing,
                     textShadow=t_shadow,
                     position=BannerPosition(x=pos_x, y=pos_y),
+                    scaleX=float(t_scale_x or 1.0),
+                    scaleY=float(t_scale_y or 1.0),
                 )
             )
         banner.texts = new_texts
