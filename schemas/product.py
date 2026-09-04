@@ -10,6 +10,7 @@ class ProductCreate(BaseModel):
     price: float = Field(..., gt=0)
     oldPrice: Optional[float] = None
     image: str
+    gallery: List[str] = Field(default_factory=list)
     category: str
     categoryEn: str = ""
     rating: float = 5.0
@@ -26,6 +27,7 @@ class ProductUpdate(BaseModel):
     price: Optional[float] = None
     oldPrice: Optional[float] = None
     image: Optional[str] = None
+    gallery: Optional[List[str]] = None
     category: Optional[str] = None
     categoryEn: Optional[str] = None
     rating: Optional[float] = None
@@ -43,6 +45,7 @@ class ProductResponse(BaseModel):
     price: float
     oldPrice: Optional[float] = None
     image: str
+    gallery: List[str] = Field(default_factory=list)
     category: str
     categoryEn: str
     rating: float
