@@ -16,7 +16,10 @@ from api.v1.faqs import (
     router as faqs_router,
     admin_faqs_router,
 )
-from api.v1.banners import router as banners_router
+from api.v1.banners import (
+    router as banners_router,
+    admin_banners_router,
+)
 from api.v1.uploads import router as uploads_router
 from api.v1.admin import router as admin_router
 from api.v1.special_offers import (
@@ -38,6 +41,7 @@ __all__ = [
     "faqs_router",
     "admin_faqs_router",
     "banners_router",
+    "admin_banners_router",
     "uploads_router",
     "admin_router",
     "special_offers_router",
