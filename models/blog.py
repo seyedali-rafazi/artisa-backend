@@ -17,6 +17,11 @@ class Article(Document):
     author: str
     image: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:
         name = "articles"
+        indexes = [
+            "articleId",
+            [("created_at", -1)],
+        ]

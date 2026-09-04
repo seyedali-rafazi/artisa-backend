@@ -98,21 +98,33 @@ async def add_product_comment(
     current_user: User = Depends(get_current_user),
 ):
     """Post a comment for a product (requires authentication)."""
-    # Verify product existence
+    # Verify product or article existence
+    product = None
     try:
         product = await Product.get(PydanticObjectId(product_id))
     except Exception:
         product = None
 
+    is_article = False
     if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="محصول مورد نظر یافت نشد",
-        )
+        from models.blog import Article
+        article = await Article.find_one(Article.articleId == product_id)
+        if not article:
+            try:
+                article = await Article.get(PydanticObjectId(product_id))
+            except Exception:
+                article = None
+        if article:
+            is_article = True
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="محصول یا مقاله مورد نظر یافت نشد",
+            )
 
     user_id = str(current_user.id)
 
-    # Check for duplicate comment content by user on same product
+    # Check for duplicate comment content by user on same target
     recent_duplicate = await Comment.find_one(
         Comment.productId == product_id,
         Comment.userId == user_id,
@@ -122,7 +134,7 @@ async def add_product_comment(
     if recent_duplicate:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="شما قبلاً این نظر را برای این محصول ثبت کرده‌اید.",
+            detail="شما قبلاً این نظر را ثبت کرده‌اید.",
         )
 
     comment = Comment(
@@ -139,8 +151,9 @@ async def add_product_comment(
     )
     await comment.insert()
 
-    # Recalculate product rating
-    await recalculate_product_rating(product_id)
+    # Recalculate product rating only if it's a product
+    if not is_article:
+        await recalculate_product_rating(product_id)
 
     data = CommentResponse(
         id=str(comment.id),

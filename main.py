@@ -30,6 +30,7 @@ from api.v1 import (
     admin_router,
     special_offers_router,
     admin_special_offers_router,
+    admin_blog_router,
 )
 
 
@@ -142,6 +143,7 @@ app.include_router(uploads_router, prefix="/api/v1/upload", tags=["Uploads"])
 app.include_router(admin_router, prefix="/api/v1", tags=["Admin"])
 app.include_router(special_offers_router, prefix="/api/v1", tags=["Special Offers"])
 app.include_router(admin_special_offers_router, prefix="/api/v1", tags=["Admin Special Offers"])
+app.include_router(admin_blog_router, prefix="/api/v1", tags=["Admin Blog"])
 
 
 @app.get("/", tags=["Root"])
