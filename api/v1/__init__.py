@@ -30,6 +30,10 @@ from api.v1.contact_messages import (
     router as contact_messages_router,
     admin_contact_messages_router,
 )
+from api.v1.newsletter import (
+    router as newsletter_router,
+    admin_newsletter_router,
+)
 
 __all__ = [
     "auth_router",
@@ -52,4 +56,6 @@ __all__ = [
     "admin_special_offers_router",
     "contact_messages_router",
     "admin_contact_messages_router",
+    "newsletter_router",
+    "admin_newsletter_router",
 ]

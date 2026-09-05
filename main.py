@@ -35,6 +35,8 @@ from api.v1 import (
     admin_banners_router,
     contact_messages_router,
     admin_contact_messages_router,
+    newsletter_router,
+    admin_newsletter_router,
 )
 
 
@@ -152,6 +154,8 @@ app.include_router(admin_faqs_router, prefix="/api/v1", tags=["Admin FAQs"])
 app.include_router(admin_banners_router, prefix="/api/v1", tags=["Admin Banners"])
 app.include_router(contact_messages_router, prefix="/api/v1/contact-messages", tags=["Contact Messages"])
 app.include_router(admin_contact_messages_router, prefix="/api/v1", tags=["Admin Contact Messages"])
+app.include_router(newsletter_router, prefix="/api/v1/newsletter", tags=["Newsletter"])
+app.include_router(admin_newsletter_router, prefix="/api/v1", tags=["Admin Newsletter"])
 
 
 @app.get("/", tags=["Root"])
