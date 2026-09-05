@@ -68,6 +68,8 @@ async def list_products(
         query_dict["isBestSeller"] = isBestSeller
 
     if minPrice is not None or maxPrice is not None:
+        if minPrice is not None and maxPrice is not None and minPrice > maxPrice:
+            minPrice, maxPrice = maxPrice, minPrice
         price_query = {}
         if minPrice is not None:
             price_query["$gte"] = minPrice
