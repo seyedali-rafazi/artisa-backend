@@ -33,6 +33,8 @@ from api.v1 import (
     admin_blog_router,
     admin_faqs_router,
     admin_banners_router,
+    contact_messages_router,
+    admin_contact_messages_router,
 )
 
 
@@ -148,6 +150,8 @@ app.include_router(admin_special_offers_router, prefix="/api/v1", tags=["Admin S
 app.include_router(admin_blog_router, prefix="/api/v1", tags=["Admin Blog"])
 app.include_router(admin_faqs_router, prefix="/api/v1", tags=["Admin FAQs"])
 app.include_router(admin_banners_router, prefix="/api/v1", tags=["Admin Banners"])
+app.include_router(contact_messages_router, prefix="/api/v1/contact-messages", tags=["Contact Messages"])
+app.include_router(admin_contact_messages_router, prefix="/api/v1", tags=["Admin Contact Messages"])
 
 
 @app.get("/", tags=["Root"])

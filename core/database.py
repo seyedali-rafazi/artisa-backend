@@ -18,6 +18,7 @@ from models.banner import Banner
 from models.audit_log import AuditLog
 from models.auth_session import AuthSession
 from models.special_offer import SpecialOffer
+from models.contact_message import ContactMessage
 
 
 class Database:
@@ -56,6 +57,7 @@ class Database:
                 AuditLog,
                 AuthSession,
                 SpecialOffer,
+                ContactMessage,
             ],
         )
         print(f"Connected to MongoDB: {settings.MONGODB_NAME}")
