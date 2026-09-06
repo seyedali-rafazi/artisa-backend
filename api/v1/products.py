@@ -217,7 +217,7 @@ async def create_product(
         name=payload.name,
         nameEn=payload.nameEn,
         price=payload.price,
-        oldPrice=payload.oldPrice,
+        oldPrice=payload.oldPrice if payload.oldPrice and payload.oldPrice > 0 else None,
         image=payload.image,
         gallery=payload.gallery or [],
         category=payload.category,
@@ -280,6 +280,8 @@ async def update_product(
 
     previous_urls = [product.image, *(getattr(product, "gallery", None) or [])]
     update_data = payload.model_dump(exclude_unset=True)
+    if "oldPrice" in update_data and (update_data["oldPrice"] is None or update_data["oldPrice"] <= 0):
+        update_data["oldPrice"] = None
     for field, val in update_data.items():
         setattr(product, field, val)
 

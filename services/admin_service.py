@@ -322,7 +322,7 @@ class AdminService:
             name=payload.name,
             nameEn=payload.nameEn,
             price=payload.price,
-            oldPrice=payload.oldPrice,
+            oldPrice=payload.oldPrice if payload.oldPrice and payload.oldPrice > 0 else None,
             image=payload.image,
             gallery=payload.gallery,
             category=payload.category,
@@ -362,6 +362,8 @@ class AdminService:
 
         previous_urls = [product.image, *(product.gallery or [])]
         update_data = payload.model_dump(exclude_unset=True)
+        if "oldPrice" in update_data and (update_data["oldPrice"] is None or update_data["oldPrice"] <= 0):
+            update_data["oldPrice"] = None
         for key, value in update_data.items():
             setattr(product, key, value)
 
