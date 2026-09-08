@@ -82,21 +82,7 @@ async def list_products(
         term = search.strip()
         tokens = [t.strip() for t in term.split() if t.strip()]
 
-        if len(tokens) <= 1:
-            pat = build_persian_regex(term)
-            reg = {"$regex": pat, "$options": "i"}
-            query_dict["$or"] = [
-                {"name": reg},
-                {"nameEn": reg},
-                {"category": reg},
-                {"categoryEn": reg},
-                {"description": reg},
-                {"descriptionEn": reg},
-            ]
-        else:
-            full_pat = build_persian_regex(term)
-            full_reg = {"$regex": full_pat, "$options": "i"}
-
+        if tokens:
             token_filters = []
             for t in tokens:
                 t_pat = build_persian_regex(t)
@@ -112,12 +98,10 @@ async def list_products(
                     ]
                 })
 
-            query_dict["$or"] = [
-                {"name": full_reg},
-                {"category": full_reg},
-                {"description": full_reg},
-                {"$and": token_filters},
-            ]
+            if len(token_filters) == 1:
+                query_dict["$or"] = token_filters[0]["$or"]
+            else:
+                query_dict["$and"] = token_filters
 
     # Fetch with Beanie
     find_query = Product.find(query_dict)
@@ -127,9 +111,13 @@ async def list_products(
         order_prefix = "-" if sort_order == "desc" else "+"
         find_query = find_query.sort(f"{order_prefix}{sort_by}")
 
-    total_count = await find_query.count()
-    skip = (page - 1) * limit
-    products = await find_query.skip(skip).limit(limit).to_list()
+    try:
+        total_count = await find_query.count()
+        skip = (page - 1) * limit
+        products = await find_query.skip(skip).limit(limit).to_list()
+    except Exception as e:
+        total_count = 0
+        products = []
 
     items = [
         ProductResponse(
