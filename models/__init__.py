@@ -13,6 +13,7 @@ from models.banner import Banner
 from models.audit_log import AuditLog
 from models.auth_session import AuthSession
 from models.special_offer import SpecialOffer
+from models.specification_setting import SpecificationSetting
 
 __all__ = [
     "User",
@@ -29,4 +30,6 @@ __all__ = [
     "AuditLog",
     "AuthSession",
     "SpecialOffer",
+    "SpecificationSetting",
 ]
+

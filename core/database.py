@@ -20,6 +20,7 @@ from models.auth_session import AuthSession
 from models.special_offer import SpecialOffer
 from models.contact_message import ContactMessage
 from models.newsletter import NewsletterSubscriber
+from models.specification_setting import SpecificationSetting
 
 
 class Database:
@@ -60,9 +61,11 @@ class Database:
                 SpecialOffer,
                 ContactMessage,
                 NewsletterSubscriber,
+                SpecificationSetting,
             ],
         )
         print(f"Connected to MongoDB: {settings.MONGODB_NAME}")
+
 
     @classmethod
     async def close_db(cls):

@@ -37,7 +37,9 @@ from api.v1 import (
     admin_contact_messages_router,
     newsletter_router,
     admin_newsletter_router,
+    admin_specification_settings_router,
 )
+
 
 
 @asynccontextmanager
@@ -156,6 +158,8 @@ app.include_router(contact_messages_router, prefix="/api/v1/contact-messages", t
 app.include_router(admin_contact_messages_router, prefix="/api/v1", tags=["Admin Contact Messages"])
 app.include_router(newsletter_router, prefix="/api/v1/newsletter", tags=["Newsletter"])
 app.include_router(admin_newsletter_router, prefix="/api/v1", tags=["Admin Newsletter"])
+app.include_router(admin_specification_settings_router, prefix="/api/v1", tags=["Admin Specification Settings"])
+
 
 
 @app.get("/", tags=["Root"])

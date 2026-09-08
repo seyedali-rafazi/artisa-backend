@@ -34,6 +34,7 @@ from api.v1.newsletter import (
     router as newsletter_router,
     admin_newsletter_router,
 )
+from api.v1.specification_settings import admin_specification_settings_router
 
 __all__ = [
     "auth_router",
@@ -58,4 +59,6 @@ __all__ = [
     "admin_contact_messages_router",
     "newsletter_router",
     "admin_newsletter_router",
+    "admin_specification_settings_router",
 ]
+
