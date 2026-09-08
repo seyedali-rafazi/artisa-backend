@@ -19,7 +19,6 @@ from schemas.specification_setting import (
 from api.v1.specification_settings import (
     serialize_setting,
     build_persian_regex,
-    DEFAULT_SPECIFICATION_SEEDS,
 )
 
 
@@ -90,14 +89,7 @@ class TestSpecificationSettingSchemas(unittest.TestCase):
         self.assertIn("[کك]", reg)
         self.assertIn("[یي]", reg)
 
-    def test_default_seeds_content(self):
-        """Default seeds contains core art gallery presets."""
-        titles = [s["title"] for s in DEFAULT_SPECIFICATION_SEEDS]
-        self.assertIn("تکنیک", titles)
-        self.assertIn("ابعاد", titles)
-        self.assertIn("سبک", titles)
-        self.assertIn("قاب", titles)
-
 
 if __name__ == "__main__":
     unittest.main()
+

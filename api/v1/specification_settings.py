@@ -23,79 +23,6 @@ admin_specification_settings_router = APIRouter(
     tags=["Admin Specification Settings"],
 )
 
-DEFAULT_SPECIFICATION_SEEDS = [
-    {
-        "title": "تکنیک",
-        "default_value": "رنگ‌روغن روی بوم",
-        "category": "تابلو نقاشی",
-        "description": "تکنیک هنری به کار رفته در خلق اثر",
-        "order": 1,
-    },
-    {
-        "title": "ابعاد",
-        "default_value": "۸۰ × ۶۰ سانتی‌متر",
-        "category": "عمومی",
-        "description": "طول، عرض و ضخامت محصول",
-        "order": 2,
-    },
-    {
-        "title": "سبک",
-        "default_value": "مدرن و آبستره",
-        "category": "تابلو نقاشی",
-        "description": "سبک و ژانر هنری اثر",
-        "order": 3,
-    },
-    {
-        "title": "جنس بوم / بستر",
-        "default_value": "بوم کتان با بافت ریز",
-        "category": "تابلو نقاشی",
-        "description": "جنس متریال زیرین اثر",
-        "order": 4,
-    },
-    {
-        "title": "قاب",
-        "default_value": "بدون قاب (آماده نصب)",
-        "category": "عمومی",
-        "description": "وضعیت و مشخصات فریم و قاب",
-        "order": 5,
-    },
-    {
-        "title": "اصالت اثر",
-        "default_value": "دارای شناسنامه معتبر و امضای دست‌نویس هنرمند",
-        "category": "عمومی",
-        "description": "تاییدیه اصالت و گواهی ثبت اثر",
-        "order": 6,
-    },
-    {
-        "title": "سال خلق اثر",
-        "default_value": "۱۴۰۳",
-        "category": "عمومی",
-        "description": "سال پایان خلق و تکمیل اثر",
-        "order": 7,
-    },
-    {
-        "title": "هنرمند",
-        "default_value": "",
-        "category": "عمومی",
-        "description": "نام خالق اثر",
-        "order": 8,
-    },
-    {
-        "title": "وزن تقریبی",
-        "default_value": "۱.۵ کیلوگرم",
-        "category": "عمومی",
-        "description": "وزن خالص محصول جهت حمل و نقل",
-        "order": 9,
-    },
-    {
-        "title": "متریال ساخت",
-        "default_value": "برنز دست‌ساز / سفال لعاب‌دار",
-        "category": "مجسمه و صنایع دستی",
-        "description": "مواد اولیه به کار رفته در اثر",
-        "order": 10,
-    },
-]
-
 
 def build_persian_regex(term: str) -> str:
     """Build a flexible regex pattern matching Persian and Arabic character variants safely."""
@@ -137,22 +64,6 @@ def serialize_setting(s: SpecificationSetting) -> SpecificationSettingResponse:
     )
 
 
-async def seed_defaults_if_empty() -> None:
-    """Auto-seed default specification settings if none exist."""
-    count = await SpecificationSetting.count()
-    if count == 0:
-        for item in DEFAULT_SPECIFICATION_SEEDS:
-            setting = SpecificationSetting(
-                title=item["title"],
-                default_value=item.get("default_value", ""),
-                category=item.get("category"),
-                description=item.get("description"),
-                order=item.get("order", 0),
-                is_active=True,
-            )
-            await setting.insert()
-
-
 @admin_specification_settings_router.get(
     "",
     summary="List all product specification settings presets",
@@ -164,10 +75,9 @@ async def list_specification_settings(
     active_only: bool = Query(False, description="Filter only active settings"),
     admin_user: User = Depends(require_admin),
 ):
-    """Retrieve saved specification settings with search and filtering."""
-    await seed_defaults_if_empty()
-
+    """Retrieve saved specification settings with search and filtering from database."""
     query = {}
+
     if active_only:
         query["is_active"] = True
 
