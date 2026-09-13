@@ -406,3 +406,122 @@ def test_auth_token_response_schema():
     assert "token" not in properties
     assert "token_type" in properties
     assert "expires_in" in properties
+
+
+# ─── 8. Unverified User Login & Activation Tests ──────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_unverified_user_login_triggers_verification_email():
+    """Verify login with unverified account forces code generation, sends email, and returns 403 requires_verification."""
+    from services.otp_service import OTPService
+    from services.email_service import EmailService
+
+    user_id = ObjectId()
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    mock_user.email = "unverified@example.com"
+    mock_user.name = "Unverified User"
+    mock_user.hashed_password = "fake_hashed_password"
+    mock_user.is_active = True
+    mock_user.is_verified = False
+    mock_user.provider = "local"
+
+    mock_response = MagicMock()
+
+    with patch.object(User, "email", "email", create=True), \
+         patch.object(User, "find_one", AsyncMock(return_value=mock_user)), \
+         patch.object(AuthService, "verify_password", return_value=True), \
+         patch.object(OTPService, "create_verification_code", AsyncMock(return_value=("9999", None))) as mock_create_code, \
+         patch.object(EmailService, "send_verification_email", return_value=True) as mock_send_email:
+
+        with pytest.raises(HTTPException) as exc_info:
+            await AuthService.login_user(
+                response=mock_response,
+                email="unverified@example.com",
+                password="password123",
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert isinstance(exc_info.value.detail, dict)
+        assert exc_info.value.detail["requires_verification"] is True
+        assert exc_info.value.detail["email"] == "unverified@example.com"
+
+        # Verify force=True was passed to bypass cooldown
+        mock_create_code.assert_awaited_once_with(
+            user_id=str(user_id),
+            email="unverified@example.com",
+            code_type="email_verification",
+            force=True,
+        )
+        mock_send_email.assert_called_once_with(
+            to_email="unverified@example.com",
+            name="Unverified User",
+            code="9999",
+        )
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_with_dict_detail():
+    """Verify http_exception_handler properly flattens dict detail instead of 'Error occurred'."""
+    from main import http_exception_handler
+    from fastapi import Request
+
+    mock_request = MagicMock(spec=Request)
+    exc = HTTPException(
+        status_code=403,
+        detail={
+            "message": "حساب کاربری شما تایید نشده است. کد تایید جدید ارسال شد.",
+            "requires_verification": True,
+            "email": "test@example.com",
+        },
+    )
+
+    response = await http_exception_handler(mock_request, exc)
+    import json
+    body = json.loads(response.body.decode("utf-8"))
+
+    assert response.status_code == 403
+    assert body["success"] is False
+    assert body["requires_verification"] is True
+    assert body["email"] == "test@example.com"
+    assert body["message"] == "حساب کاربری شما تایید نشده است. کد تایید جدید ارسال شد."
+    assert "Error occurred" not in body["message"]
+
+
+@pytest.mark.asyncio
+async def test_unverified_user_re_registration_resends_code():
+    """Verify that re-registering an unverified account updates credentials and resends code."""
+    from services.otp_service import OTPService
+    from services.email_service import EmailService
+
+    user_id = ObjectId()
+    mock_existing_user = MagicMock()
+    mock_existing_user.id = user_id
+    mock_existing_user.email = "pending@example.com"
+    mock_existing_user.is_verified = False
+    mock_existing_user.save = AsyncMock()
+
+    with patch.object(User, "email", "email", create=True), \
+         patch.object(User, "find_one", AsyncMock(return_value=mock_existing_user)), \
+         patch.object(AuthService, "get_password_hash", return_value="fake_hash"), \
+         patch.object(OTPService, "create_verification_code", AsyncMock(return_value=("1234", None))) as mock_create_code, \
+         patch.object(EmailService, "send_verification_email", return_value=True) as mock_send_email:
+
+        result = await AuthService.register_user(
+            name="New Name",
+            email="pending@example.com",
+            password="newpassword123",
+        )
+
+        assert result["email"] == "pending@example.com"
+        assert result["is_verified"] is False
+        mock_existing_user.save.assert_awaited_once()
+        mock_create_code.assert_awaited_once_with(
+            user_id=str(user_id),
+            email="pending@example.com",
+            code_type="email_verification",
+            force=True,
+        )
+        mock_send_email.assert_called_once()
+

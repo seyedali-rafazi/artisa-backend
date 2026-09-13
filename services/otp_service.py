@@ -26,11 +26,12 @@ class OTPService:
 
     @classmethod
     async def create_verification_code(
-        cls, user_id: str, email: str, code_type: str
+        cls, user_id: str, email: str, code_type: str, force: bool = False
     ) -> Tuple[Optional[str], Optional[int]]:
         """Create a new 4-digit verification code.
 
         Returns (raw_code, None) on success, or (None, seconds_remaining) if rate-limited.
+        If force=True, ignores the cooldown and generates a fresh code.
         """
         now = datetime.utcnow()
 
@@ -44,7 +45,7 @@ class OTPService:
 
         if existing:
             elapsed = (now - existing.last_sent_at).total_seconds()
-            if elapsed < cls.RESEND_COOLDOWN_SECONDS:
+            if not force and elapsed < cls.RESEND_COOLDOWN_SECONDS:
                 remaining = int(cls.RESEND_COOLDOWN_SECONDS - elapsed)
                 return None, remaining
 

@@ -282,10 +282,32 @@ class AuthService:
         """Register a new unverified user and send 4-digit verification code."""
         existing_user = await User.find_one(User.email == email)
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="کاربری با این ایمیل قبلاً ثبت نام کرده است",
-            )
+            if not existing_user.is_verified:
+                existing_user.name = name
+                existing_user.hashed_password = cls.get_password_hash(password)
+                if phone is not None:
+                    existing_user.phone = phone
+                await existing_user.save()
+
+                code, _ = await OTPService.create_verification_code(
+                    user_id=str(existing_user.id), email=email, code_type="email_verification", force=True
+                )
+                if code:
+                    EmailService.send_verification_email(
+                        to_email=existing_user.email, name=existing_user.name, code=code
+                    )
+
+                return {
+                    "user_id": str(existing_user.id),
+                    "email": existing_user.email,
+                    "is_verified": False,
+                    "message": "کد تایید فعال‌سازی مجدداً به ایمیل شما ارسال شد.",
+                }
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="کاربری با این ایمیل قبلاً ثبت نام کرده است",
+                )
 
         hashed_pwd = cls.get_password_hash(password)
         user = User(
@@ -417,7 +439,7 @@ class AuthService:
         # Require email verification for password accounts
         if not user.is_verified and user.provider == "local":
             code, remaining = await OTPService.create_verification_code(
-                user_id=str(user.id), email=email, code_type="email_verification"
+                user_id=str(user.id), email=email, code_type="email_verification", force=True
             )
             if code:
                 EmailService.send_verification_email(
@@ -426,7 +448,7 @@ class AuthService:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
-                    "message": "حساب کاربری شما تایید نشده است. لطفاً ابتدا ایمیل خود را تایید کنید.",
+                    "message": "حساب کاربری شما تایید نشده است. کد تایید فعال‌سازی مجدداً به ایمیل شما ارسال شد.",
                     "requires_verification": True,
                     "email": user.email,
                 },

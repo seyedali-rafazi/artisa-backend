@@ -95,12 +95,27 @@ async def add_security_headers(request: Request, call_next):
 # Global Exception Handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    if isinstance(exc.detail, dict):
+        message = exc.detail.get("message", "خطایی رخ داده است")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "success": False,
+                "message": message,
+                "detail": exc.detail,
+                "requires_verification": exc.detail.get("requires_verification", False),
+                "email": exc.detail.get("email"),
+                "errors": [message],
+                **{k: v for k, v in exc.detail.items() if k not in ["message", "success", "errors"]},
+            },
+        )
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
             "success": False,
-            "message": exc.detail if isinstance(exc.detail, str) else "Error occurred",
-            "errors": [exc.detail] if not isinstance(exc.detail, str) else [],
+            "message": exc.detail if isinstance(exc.detail, str) else "خطایی رخ داده است",
+            "errors": [exc.detail] if isinstance(exc.detail, str) else (exc.detail if isinstance(exc.detail, list) else []),
         },
     )
 
