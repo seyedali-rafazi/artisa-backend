@@ -87,11 +87,19 @@ async def list_products(
     search: Optional[str] = None,
     category: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (price, stock_quantity, name, rating, status, created_at, category)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction: asc or desc"),
     admin_user: User = Depends(require_admin),
 ):
     """List paginated products for administration."""
     return await AdminService.list_products(
-        page=page, limit=limit, search=search, category=category, status_filter=status_filter
+        page=page,
+        limit=limit,
+        search=search,
+        category=category,
+        status_filter=status_filter,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 

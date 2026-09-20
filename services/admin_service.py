@@ -278,22 +278,49 @@ class AdminService:
         search: Optional[str] = None,
         category: Optional[str] = None,
         status_filter: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
     ) -> Dict[str, Any]:
-        """Fetch paginated products for admin table."""
+        """Fetch paginated products for admin table with search, filter, and sorting."""
         skip = (page - 1) * limit
         all_products = await Product.all().to_list()
 
         filtered = []
         for p in all_products:
             if search:
-                s = search.lower()
-                if s not in p.name.lower() and (not p.nameEn or s not in p.nameEn.lower()):
+                s = search.lower().strip()
+                name_match = s in (p.name or "").lower()
+                name_en_match = bool(p.nameEn and s in p.nameEn.lower())
+                sku_match = bool(p.sku and s in p.sku.lower())
+                category_match = bool(p.category and s in p.category.lower())
+                if not (name_match or name_en_match or sku_match or category_match):
                     continue
             if category and p.category != category:
                 continue
             if status_filter and getattr(p, "status", "published") != status_filter:
                 continue
             filtered.append(p)
+
+        # Sorting
+        if sort_by:
+            reverse = (sort_order or "desc").lower() == "desc"
+            if sort_by == "price":
+                filtered.sort(key=lambda x: getattr(x, "price", 0) or 0, reverse=reverse)
+            elif sort_by in ["stock", "stock_quantity"]:
+                filtered.sort(key=lambda x: getattr(x, "stock_quantity", 0) or 0, reverse=reverse)
+            elif sort_by == "name":
+                filtered.sort(key=lambda x: (getattr(x, "name", "") or "").lower(), reverse=reverse)
+            elif sort_by == "rating":
+                filtered.sort(key=lambda x: getattr(x, "rating", 0) or 0, reverse=reverse)
+            elif sort_by == "status":
+                filtered.sort(key=lambda x: (getattr(x, "status", "") or "").lower(), reverse=reverse)
+            elif sort_by == "created_at":
+                filtered.sort(key=lambda x: getattr(x, "created_at", datetime.min) or datetime.min, reverse=reverse)
+            elif sort_by == "category":
+                filtered.sort(key=lambda x: (getattr(x, "category", "") or "").lower(), reverse=reverse)
+        else:
+            # Default sorting: newest first (created_at desc)
+            filtered.sort(key=lambda x: getattr(x, "created_at", datetime.min) or datetime.min, reverse=True)
 
         total = len(filtered)
         paginated = filtered[skip : skip + limit]
@@ -302,6 +329,10 @@ class AdminService:
         for p in paginated:
             p_dict = p.model_dump()
             p_dict["id"] = str(p.id)
+            if isinstance(p_dict.get("created_at"), datetime):
+                p_dict["created_at"] = p_dict["created_at"].isoformat()
+            if isinstance(p_dict.get("updated_at"), datetime):
+                p_dict["updated_at"] = p_dict["updated_at"].isoformat()
             items.append(p_dict)
 
         total_pages = (total + limit - 1) // limit if limit > 0 else 1
