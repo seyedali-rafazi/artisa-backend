@@ -118,9 +118,11 @@ async def admin_list_subscribers(
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None, description="Search in email address"),
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (email, is_active, created_at)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
-    """Retrieve paginated newsletter subscribers with search and status filtering."""
+    """Retrieve paginated newsletter subscribers with search, status filtering, and sorting."""
     query_filter = {}
 
     if search and search.strip():
@@ -130,8 +132,14 @@ async def admin_list_subscribers(
     if is_active is not None:
         query_filter["is_active"] = is_active
 
+    sort_field = "-created_at"
+    if sort_by:
+        prefix = "-" if (sort_order or "desc").lower() == "desc" else "+"
+        if sort_by in ["email", "is_active", "created_at", "updated_at"]:
+            sort_field = f"{prefix}{sort_by}"
+
     skip = (page - 1) * limit
-    query = NewsletterSubscriber.find(query_filter).sort("-created_at")
+    query = NewsletterSubscriber.find(query_filter).sort(sort_field)
 
     total = await query.count()
     subscribers = await query.skip(skip).limit(limit).to_list()

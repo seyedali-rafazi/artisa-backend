@@ -68,11 +68,13 @@ async def list_admin_special_offers(
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (title, start_at, end_at, is_active, created_at)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
     """List paginated special offers for admin management."""
     items, total_count, total_pages = await SpecialOfferService.list_admin_offers(
-        page=page, limit=limit, search=search, status_filter=status_filter
+        page=page, limit=limit, search=search, status_filter=status_filter, sort_by=sort_by, sort_order=sort_order
     )
     result = PaginatedSpecialOffersResponse(
         items=items,

@@ -91,6 +91,8 @@ async def admin_list_messages_impl(
     limit: int = 10,
     search: Optional[str] = None,
     status_filter: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    sort_order: Optional[str] = "desc",
 ):
     """Shared query logic for listing contact messages in admin panel."""
     query_filter = {}
@@ -106,8 +108,14 @@ async def admin_list_messages_impl(
     if status_filter and status_filter.strip() in ["read", "unread"]:
         query_filter["status"] = status_filter.strip()
 
+    sort_field = "-created_at"
+    if sort_by:
+        prefix = "-" if (sort_order or "desc").lower() == "desc" else "+"
+        if sort_by in ["created_at", "name", "email", "status", "updated_at"]:
+            sort_field = f"{prefix}{sort_by}"
+
     skip = (page - 1) * limit
-    query = ContactMessage.find(query_filter).sort("-created_at")
+    query = ContactMessage.find(query_filter).sort(sort_field)
 
     total = await query.count()
     messages = await query.skip(skip).limit(limit).to_list()
@@ -210,11 +218,13 @@ async def list_contact_messages(
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None, description="Search in name, email, or message"),
     status: Optional[str] = Query(None, description="Filter by status: unread, read, or all"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (created_at, name, email, status)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
-    """Retrieve paginated contact messages with optional search and status filter."""
+    """Retrieve paginated contact messages with optional search, status filter, and sorting."""
     return await admin_list_messages_impl(
-        page=page, limit=limit, search=search, status_filter=status
+        page=page, limit=limit, search=search, status_filter=status, sort_by=sort_by, sort_order=sort_order
     )
 
 
@@ -261,10 +271,12 @@ async def admin_alias_list(
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$"),
     admin_user: User = Depends(require_admin),
 ):
     return await admin_list_messages_impl(
-        page=page, limit=limit, search=search, status_filter=status
+        page=page, limit=limit, search=search, status_filter=status, sort_by=sort_by, sort_order=sort_order
     )
 
 

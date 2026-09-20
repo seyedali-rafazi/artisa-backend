@@ -127,6 +127,8 @@ async def admin_list_articles(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (title, author, date, created_at)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
     """Retrieve paginated blog articles for admin panel."""
@@ -140,7 +142,13 @@ async def admin_list_articles(
             ]
         }
 
-    query = Article.find(query_filter).sort("-created_at")
+    sort_field = "-created_at"
+    if sort_by:
+        prefix = "-" if (sort_order or "desc").lower() == "desc" else "+"
+        if sort_by in ["title", "author", "date", "created_at", "updated_at"]:
+            sort_field = f"{prefix}{sort_by}"
+
+    query = Article.find(query_filter).sort(sort_field)
     total = await query.count()
     skip = (page - 1) * limit
     articles = await query.skip(skip).limit(limit).to_list()

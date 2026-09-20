@@ -134,9 +134,11 @@ async def get_public_banner(banner_id: str):
 async def admin_list_banners(
     search: Optional[str] = Query(None, description="Search in title"),
     status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: active, inactive"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (order, title, created_at, isActive)"),
+    sort_order: Optional[str] = Query("asc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
-    """Retrieve all banners (active and inactive) sorted by display order."""
+    """Retrieve all banners (active and inactive) sorted by display order or custom sort."""
     query_filter = {}
     if search and search.strip():
         query_filter["title"] = {"$regex": search.strip(), "$options": "i"}
@@ -146,7 +148,13 @@ async def admin_list_banners(
     elif status_filter == "inactive":
         query_filter["isActive"] = False
 
-    banners = await Banner.find(query_filter).sort("+order", "+_id").to_list()
+    sort_criteria = ["+order", "+_id"]
+    if sort_by:
+        prefix = "-" if (sort_order or "desc").lower() == "desc" else "+"
+        if sort_by in ["order", "title", "created_at", "isActive", "updated_at"]:
+            sort_criteria = [f"{prefix}{sort_by}"]
+
+    banners = await Banner.find(query_filter).sort(*sort_criteria).to_list()
     items = [serialize_banner(b).model_dump() for b in banners]
 
     return success_response(

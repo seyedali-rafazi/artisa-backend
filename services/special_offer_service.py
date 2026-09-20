@@ -319,8 +319,10 @@ class SpecialOfferService:
         limit: int = 10,
         search: Optional[str] = None,
         status_filter: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
     ) -> Tuple[List[SpecialOfferResponse], int, int]:
-        """List paginated special offers for admin with flexible filtering."""
+        """List paginated special offers for admin with flexible filtering and sorting."""
         curr_utc = now_utc()
         query_dict = {}
 
@@ -345,7 +347,14 @@ class SpecialOfferService:
             elif sf == "inactive":
                 query_dict["is_active"] = False
 
-        find_query = SpecialOffer.find(query_dict).sort("-created_at")
+        # Determine sort field
+        sort_field = "-created_at"
+        direction = "-" if (sort_order or "desc").lower() == "desc" else "+"
+        if sort_by:
+            if sort_by in ["title", "start_at", "end_at", "is_active", "created_at"]:
+                sort_field = f"{direction}{sort_by}"
+
+        find_query = SpecialOffer.find(query_dict).sort(sort_field)
         total_count = await find_query.count()
         skip = (page - 1) * limit
         offers = await find_query.skip(skip).limit(limit).to_list()

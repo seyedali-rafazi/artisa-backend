@@ -94,20 +94,32 @@ async def get_faq(id: str):
 @admin_faqs_router.get("/", include_in_schema=False)
 async def admin_list_faqs(
     search: Optional[str] = Query(None, description="Search in question or answer"),
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: active, inactive"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (order, question, created_at, is_active)"),
+    sort_order: Optional[str] = Query("asc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
-    """Retrieve all FAQ items (active and inactive) with optional search filter."""
+    """Retrieve all FAQ items (active and inactive) with optional search filter and custom sorting."""
     query_filter = {}
     if search and search.strip():
         s = search.strip()
-        query_filter = {
-            "$or": [
-                {"question": {"$regex": s, "$options": "i"}},
-                {"answer": {"$regex": s, "$options": "i"}},
-            ]
-        }
+        query_filter["$or"] = [
+            {"question": {"$regex": s, "$options": "i"}},
+            {"answer": {"$regex": s, "$options": "i"}},
+        ]
 
-    faqs = await FAQ.find(query_filter).sort("+order", "+_id").to_list()
+    if status_filter == "active":
+        query_filter["$or"] = [{"is_active": True}, {"is_active": {"$exists": False}}]
+    elif status_filter == "inactive":
+        query_filter["is_active"] = False
+
+    sort_criteria = ["+order", "+_id"]
+    if sort_by:
+        prefix = "-" if (sort_order or "desc").lower() == "desc" else "+"
+        if sort_by in ["order", "question", "created_at", "is_active", "updated_at"]:
+            sort_criteria = [f"{prefix}{sort_by}"]
+
+    faqs = await FAQ.find(query_filter).sort(*sort_criteria).to_list()
     items = [serialize_faq(f).model_dump() for f in faqs]
 
     return success_response(

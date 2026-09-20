@@ -534,8 +534,11 @@ class AdminService:
         limit: int = 10,
         search: Optional[str] = None,
         status_filter: Optional[str] = None,
+        payment_status_filter: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
     ) -> Dict[str, Any]:
-        """Fetch paginated order list."""
+        """Fetch paginated order list with search, status, and payment filters, plus sorting."""
         skip = (page - 1) * limit
         all_orders = await Order.all().to_list()
 
@@ -548,7 +551,25 @@ class AdminService:
                     continue
             if status_filter and o.status != status_filter:
                 continue
+            if payment_status_filter and getattr(o, "paymentStatus", "") != payment_status_filter:
+                continue
             filtered.append(o)
+
+        if sort_by:
+            reverse = (sort_order or "desc").lower() == "desc"
+            if sort_by == "totalPrice":
+                filtered.sort(key=lambda x: float(x.totalPrice or 0), reverse=reverse)
+            elif sort_by == "date":
+                filtered.sort(key=lambda x: x.date or "", reverse=reverse)
+            elif sort_by == "orderId":
+                filtered.sort(key=lambda x: (x.orderId or "").lower(), reverse=reverse)
+            elif sort_by == "status":
+                filtered.sort(key=lambda x: (x.status or "").lower(), reverse=reverse)
+            elif sort_by == "paymentStatus":
+                filtered.sort(key=lambda x: (getattr(x, "paymentStatus", "") or "").lower(), reverse=reverse)
+        else:
+            # Default sort newest first by date or _id
+            filtered.sort(key=lambda x: x.date or str(x.id), reverse=True)
 
         total = len(filtered)
         paginated = filtered[skip : skip + limit]
@@ -706,13 +727,44 @@ class AdminService:
     # ─────────────────── ADMIN MANAGEMENT (SUPER_ADMIN ONLY) ───────────────────
 
     @staticmethod
-    async def list_admins() -> List[Dict[str, Any]]:
-        """List all admin and super admin accounts."""
+    async def list_admins(
+        search: Optional[str] = None,
+        role: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
+    ) -> List[Dict[str, Any]]:
+        """List all admin and super admin accounts with search, role filter, and sorting."""
         users = await User.all().to_list()
         admins = [u for u in users if u.is_admin_user]
 
-        result = []
+        filtered = []
         for a in admins:
+            if role and a.normalized_role != role:
+                continue
+            if search:
+                s = search.lower()
+                name_match = s in (a.name or "").lower()
+                email_match = s in (a.email or "").lower()
+                phone_match = bool(a.phone and s in a.phone.lower())
+                if not (name_match or email_match or phone_match):
+                    continue
+            filtered.append(a)
+
+        if sort_by:
+            reverse = (sort_order or "desc").lower() == "desc"
+            if sort_by == "name":
+                filtered.sort(key=lambda x: (x.name or "").lower(), reverse=reverse)
+            elif sort_by == "email":
+                filtered.sort(key=lambda x: (x.email or "").lower(), reverse=reverse)
+            elif sort_by == "role":
+                filtered.sort(key=lambda x: x.normalized_role, reverse=reverse)
+            elif sort_by == "created_at":
+                filtered.sort(key=lambda x: getattr(x, "created_at", datetime.min) or datetime.min, reverse=reverse)
+        else:
+            filtered.sort(key=lambda x: getattr(x, "created_at", datetime.min) or datetime.min, reverse=True)
+
+        result = []
+        for a in filtered:
             result.append(
                 {
                     "id": str(a.id),
@@ -801,14 +853,21 @@ class AdminService:
 
     @staticmethod
     async def list_audit_logs(
-        page: int = 1, limit: int = 20, search: Optional[str] = None
+        page: int = 1,
+        limit: int = 20,
+        search: Optional[str] = None,
+        action_filter: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
     ) -> Dict[str, Any]:
-        """Fetch audit logs (SUPER_ADMIN only)."""
+        """Fetch audit logs (SUPER_ADMIN only) with search, action filter, and sorting."""
         skip = (page - 1) * limit
         all_logs = await AuditLog.find_all().sort("-created_at").to_list()
 
         filtered = []
         for log in all_logs:
+            if action_filter and log.action != action_filter:
+                continue
             if search:
                 s = search.lower()
                 if (
@@ -818,6 +877,15 @@ class AdminService:
                 ):
                     continue
             filtered.append(log)
+
+        if sort_by:
+            reverse = (sort_order or "desc").lower() == "desc"
+            if sort_by == "created_at":
+                filtered.sort(key=lambda x: getattr(x, "created_at", datetime.min) or datetime.min, reverse=reverse)
+            elif sort_by == "action":
+                filtered.sort(key=lambda x: (x.action or "").lower(), reverse=reverse)
+            elif sort_by == "user_email":
+                filtered.sort(key=lambda x: (x.user_email or "").lower(), reverse=reverse)
 
         total = len(filtered)
         paginated = filtered[skip : skip + limit]
@@ -847,8 +915,10 @@ class AdminService:
         status_filter: Optional[str] = None,
         type_filter: Optional[str] = None,
         product_id: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = "desc",
     ) -> Dict[str, Any]:
-        """Fetch paginated comments for administration."""
+        """Fetch paginated comments for administration with search, filter, and sorting."""
         skip = (page - 1) * limit
         query = Comment.find(Comment.is_deleted == False).sort("-created_at")
 
@@ -876,6 +946,19 @@ class AdminService:
                 if s not in p_name and s not in user_name and s not in text_val:
                     continue
             filtered.append(c)
+
+        if sort_by:
+            reverse = (sort_order or "desc").lower() == "desc"
+            if sort_by == "rating":
+                filtered.sort(key=lambda x: getattr(x, "rating", 5) or 5, reverse=reverse)
+            elif sort_by == "created_at":
+                filtered.sort(key=lambda x: getattr(x, "created_at", datetime.min) or datetime.min, reverse=reverse)
+            elif sort_by == "date":
+                filtered.sort(key=lambda x: getattr(x, "date", "") or "", reverse=reverse)
+            elif sort_by == "status":
+                filtered.sort(key=lambda x: (getattr(x, "status", "") or "").lower(), reverse=reverse)
+            elif sort_by == "userName":
+                filtered.sort(key=lambda x: (getattr(x, "userName", "") or "").lower(), reverse=reverse)
 
         total = len(filtered)
         paginated = filtered[skip : skip + limit]

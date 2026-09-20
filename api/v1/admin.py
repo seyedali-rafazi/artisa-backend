@@ -212,11 +212,20 @@ async def list_orders(
     limit: int = Query(10, ge=1, le=100),
     search: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    payment_status_filter: Optional[str] = Query(None, alias="paymentStatus"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (date, totalPrice, orderId, status, paymentStatus)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
     """List paginated orders."""
     return await AdminService.list_orders(
-        page=page, limit=limit, search=search, status_filter=status_filter
+        page=page,
+        limit=limit,
+        search=search,
+        status_filter=status_filter,
+        payment_status_filter=payment_status_filter,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 
@@ -278,9 +287,15 @@ async def reject_order_payment(
 
 
 @router.get("/admins")
-async def list_admins(super_admin: User = Depends(require_super_admin)):
-    """List all admin accounts (SUPER_ADMIN only)."""
-    return await AdminService.list_admins()
+async def list_admins(
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    sort_by: Optional[str] = Query(None, description="Field to sort by (name, email, role, created_at)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
+    super_admin: User = Depends(require_super_admin),
+):
+    """List all admin accounts (SUPER_ADMIN only) with optional search, role filter, and sorting."""
+    return await AdminService.list_admins(search=search, role=role, sort_by=sort_by, sort_order=sort_order)
 
 
 @router.post("/admins", status_code=status.HTTP_201_CREATED)
@@ -322,10 +337,15 @@ async def list_audit_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
+    action_filter: Optional[str] = Query(None, alias="action"),
+    sort_by: Optional[str] = Query(None, description="Field to sort by (created_at, action, user_email)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     super_admin: User = Depends(require_super_admin),
 ):
     """List audit trail logs (SUPER_ADMIN only)."""
-    return await AdminService.list_audit_logs(page=page, limit=limit, search=search)
+    return await AdminService.list_audit_logs(
+        page=page, limit=limit, search=search, action_filter=action_filter, sort_by=sort_by, sort_order=sort_order
+    )
 
 
 # ─── 7. COMMENT MANAGEMENT ─────────────────────────────────────────────────
@@ -339,6 +359,8 @@ async def list_comments(
     status_filter: Optional[str] = Query(None, alias="status"),
     type_filter: Optional[str] = Query(None, alias="type"),
     product_id: Optional[str] = None,
+    sort_by: Optional[str] = Query(None, description="Field to sort by (created_at, date, rating, status)"),
+    sort_order: Optional[str] = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
     admin_user: User = Depends(require_admin),
 ):
     """List paginated comments for moderation."""
@@ -349,6 +371,8 @@ async def list_comments(
         status_filter=status_filter,
         type_filter=type_filter,
         product_id=product_id,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
 
