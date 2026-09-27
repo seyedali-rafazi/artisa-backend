@@ -67,5 +67,9 @@ class OrderTrackingResponse(BaseModel):
     totalPrice: float
     receiptUrl: Optional[str] = None
     rejectionReason: Optional[str] = None
+    paymentMethod: Optional[str] = None
+    items: Optional[List[OrderItemSchema]] = None
+    shippingAddress: Optional[ShippingAddressSchema] = None
     steps: List[TrackingStep]
+
 

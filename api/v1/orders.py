@@ -1,8 +1,9 @@
 """Orders Router."""
 
 import random
+import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, File, UploadFile, status, HTTPException
 
@@ -15,6 +16,96 @@ from schemas.response import success_response, error_response
 from services.image_upload import process_and_upload_image
 
 router = APIRouter()
+
+
+def normalize_tracking_id(input_id: str) -> str:
+    """Normalize user input order id (convert Persian/Arabic digits, strip #, ensure uppercase ORD- prefix)."""
+    cleaned = input_id.strip()
+    persian_to_eng = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+    cleaned = cleaned.translate(persian_to_eng).lstrip("#").strip()
+    cleaned_upper = cleaned.upper()
+    if not cleaned_upper.startswith("ORD-"):
+        if cleaned_upper.startswith("ORD"):
+            cleaned_upper = f"ORD-{cleaned_upper[3:].lstrip('-')}"
+        elif cleaned_upper.isdigit():
+            cleaned_upper = f"ORD-{cleaned_upper}"
+    return cleaned_upper
+
+
+DEMO_TRACKING_ORDERS: Dict[str, Dict[str, Any]] = {
+    "ORD-10042": {
+        "orderId": "ORD-10042",
+        "status": "delivered",
+        "paymentStatus": "payment_approved",
+        "paymentMethod": "card",
+        "date": "۱۴۰۵/۰۳/۱۵",
+        "totalPrice": 5050000.0,
+        "receiptUrl": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80",
+        "rejectionReason": None,
+        "items": [
+            {
+                "id": "p1",
+                "name": "تابلو نقاشی رنگ‌روغن «افق طلایی»",
+                "price": 3200000.0,
+                "quantity": 1,
+                "image": "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?auto=format&fit=crop&w=400&q=80",
+            },
+            {
+                "id": "p2",
+                "name": "تابلو آبرنگ «باغ در سپیده‌دم»",
+                "price": 1850000.0,
+                "quantity": 1,
+                "image": "https://images.unsplash.com/photo-1549887534-1541e9326642?auto=format&fit=crop&w=400&q=80",
+            },
+        ],
+        "shippingAddress": {
+            "fullName": "کاربر نمونه",
+            "phone": "09121234567",
+            "postalCode": "1234567890",
+            "address": "تهران، خیابان ولیعصر، کوچه گلستان، پلاک ۱۲",
+        },
+        "steps": [
+            {"title": "statusReceived", "desc": "سفارش شما در سیستم با موفقیت ثبت گردید", "completed": True},
+            {"title": "statusPaymentReview", "desc": "فیش واریز کارت به کارت بررسی و تایید شد", "completed": True},
+            {"title": "statusProcessing", "desc": "اثر هنری با بسته‌بندی نفیس و ایمن آماده‌سازی شد", "completed": True},
+            {"title": "statusShipped", "desc": "تحویل به شرکت پست پیشتاز و صدور بارنامه", "completed": True},
+            {"title": "statusDelivered", "desc": "اثر هنری با سلامت کامل تحویل خریدار محترم گردید", "completed": True},
+        ],
+    },
+    "ORD-10038": {
+        "orderId": "ORD-10038",
+        "status": "processing",
+        "paymentStatus": "payment_approved",
+        "paymentMethod": "card",
+        "date": "۱۴۰۵/۰۴/۰۲",
+        "totalPrice": 7500000.0,
+        "receiptUrl": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80",
+        "rejectionReason": None,
+        "items": [
+            {
+                "id": "p3",
+                "name": "مجسمه دکوراتیو دم وال | اکسسوری خاص و مدرن",
+                "price": 7500000.0,
+                "quantity": 1,
+                "image": "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=400&q=80",
+            },
+        ],
+        "shippingAddress": {
+            "fullName": "سارا محمدی",
+            "phone": "09129876543",
+            "postalCode": "1983948571",
+            "address": "تهران، نیاوران، خیابان یاسر، کوچه مریم، پلاک ۸",
+        },
+        "steps": [
+            {"title": "statusReceived", "desc": "سفارش شما در سیستم با موفقیت ثبت گردید", "completed": True},
+            {"title": "statusPaymentReview", "desc": "فیش واریز بررسی و تایید گردید", "completed": True},
+            {"title": "statusProcessing", "desc": "اثر هنری با بسته‌بندی تخصصی گالری در حال آماده‌سازی است", "completed": True},
+            {"title": "statusShipped", "desc": "تحویل به پست پیشتاز یا پیک اختصاصی گالری", "completed": False},
+            {"title": "statusDelivered", "desc": "اثر هنری درب منزل تحویل داده خواهد شد", "completed": False},
+        ],
+    },
+}
+
 
 
 @router.post("", summary="Create order (Checkout)")
@@ -125,14 +216,15 @@ async def create_order(
 async def upload_payment_receipt(
     order_id: str,
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
-    """Upload payment receipt photo for an order."""
-    clean_id = order_id.strip()
-    if not clean_id.startswith("ORD-") and clean_id.isdigit():
-        clean_id = f"ORD-{clean_id}"
+    """Upload payment receipt photo for an order (owner, admin, or customer with valid orderId)."""
+    clean_id = normalize_tracking_id(order_id)
 
     order = await Order.find_one(Order.orderId == clean_id)
+    if not order:
+        escaped = re.escape(clean_id)
+        order = await Order.find_one({"orderId": {"$regex": f"^{escaped}$", "$options": "i"}})
     if not order:
         try:
             order = await Order.get(PydanticObjectId(order_id))
@@ -144,12 +236,21 @@ async def upload_payment_receipt(
             message="سفارش مورد نظر یافت نشد", status_code=status.HTTP_404_NOT_FOUND
         )
 
-    # Authorization check: only order owner or admin
-    if order.userId != str(current_user.id) and not current_user.is_admin_user:
-        return error_response(
-            message="شما دسترسی به این سفارش ندارید",
-            status_code=status.HTTP_403_FORBIDDEN,
-        )
+    # Authorization check:
+    # If authenticated, make sure user owns it or is admin
+    if current_user:
+        if order.userId and order.userId != str(current_user.id) and not current_user.is_admin_user:
+            return error_response(
+                message="شما دسترسی به این سفارش ندارید",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+    else:
+        # If unauthenticated, allow upload only if order payment is pending or rejected
+        if order.paymentStatus not in ["pending_payment", "payment_rejected"]:
+            return error_response(
+                message="این سفارش در حال حاضر امکان بارگذاری فیش مجدد ندارد",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
     # Process and upload image (validates file magic bytes and size <= 5MB)
     try:
@@ -212,60 +313,105 @@ async def list_user_orders(current_user: User = Depends(get_current_user)):
 
 @router.get("/track/{order_id}", summary="Track order by numeric ID or ORD code")
 async def track_order(order_id: str):
-    """Public order tracking endpoint returning order timeline steps."""
-    clean_id = order_id.strip()
-    if not clean_id.startswith("ORD-") and clean_id.isdigit():
-        clean_id = f"ORD-{clean_id}"
+    """Public order tracking endpoint returning full order timeline steps and summary."""
+    clean_id = normalize_tracking_id(order_id)
 
     order = await Order.find_one(Order.orderId == clean_id)
     if not order:
+        escaped = re.escape(clean_id)
+        order = await Order.find_one({"orderId": {"$regex": f"^{escaped}$", "$options": "i"}})
+    if not order:
         order = await Order.find_one(Order.orderId == order_id.strip())
+    if not order:
+        clean_num = "".join(filter(str.isdigit, clean_id))
+        if clean_num:
+            order = await Order.find_one({"orderId": {"$regex": f"{re.escape(clean_num)}$", "$options": "i"}})
+    if not order:
+        try:
+            order = await Order.get(PydanticObjectId(order_id.strip()))
+        except Exception:
+            order = None
+
+    # Fallback to rich pre-configured demo orders if not found in database
+    if not order and clean_id in DEMO_TRACKING_ORDERS:
+        demo = DEMO_TRACKING_ORDERS[clean_id]
+        return success_response(data=demo, message="وضعیت سفارش دریافت شد")
 
     if not order:
         return error_response(
-            message="سفارشی با این کد یافت نشد", status_code=status.HTTP_404_NOT_FOUND
+            message="سفارشی با این کد پیگیری یافت نشد. لطفاً از صحت کد وارد شده اطمینان حاصل فرمایید.",
+            status_code=status.HTTP_404_NOT_FOUND,
         )
 
     # Generate timeline steps based on order status and payment status
     status_order = ["pending", "processing", "shipped", "delivered"]
     curr_idx = status_order.index(order.status) if order.status in status_order else 0
+    is_cancelled = order.status == "cancelled"
+
+    is_payment_done = (
+        order.paymentStatus in ["paid", "payment_approved"] or curr_idx >= 1
+    )
+    is_payment_rejected = order.paymentStatus == "payment_rejected"
+
+    if order.paymentMethod == "online":
+        pay_desc = "پرداخت آنلاین با موفقیت انجام شد" if is_payment_done else "در انتظار پرداخت اینترنتی"
+    elif is_payment_rejected:
+        pay_desc = f"فیش واریزی رد شد: {order.rejectionReason or 'لطفاً فیش صحیح را بارگذاری فرمایید'}"
+    elif is_payment_done:
+        pay_desc = "فیش واریز کارت به کارت بررسی و تایید گردید"
+    elif order.receiptUrl:
+        pay_desc = "فیش واریز ارسال شده و در صف بررسی حسابداری گالری است"
+    else:
+        pay_desc = "در انتظار واریز کارت به کارت و ارسال تصویر فیش"
 
     steps = [
         TrackingStep(
             title="statusReceived",
-            desc="سفارش در سیستم ثبت شده است",
+            desc="سفارش شما در سیستم با موفقیت ثبت گردید",
             completed=True,
         ),
         TrackingStep(
             title="statusPaymentReview",
-            desc="بررسی فیش واریز کارت به کارت توسط مدیریت",
-            completed=order.paymentStatus == "payment_approved" or curr_idx >= 1,
+            desc=pay_desc,
+            completed=is_payment_done,
         ),
         TrackingStep(
             title="statusProcessing",
-            desc="اثر هنری با بسته‌بندی تخصصی گالری در حال آماده‌سازی",
-            completed=curr_idx >= 1,
+            desc="اثر هنری با بسته‌بندی نفیس و تخصصی گالری در حال آماده‌سازی و ایمن‌سازی است",
+            completed=not is_cancelled and curr_idx >= 1,
         ),
         TrackingStep(
             title="statusShipped",
-            desc="تحویل به پست پیشتاز یا پیک اختصاصی گالری",
-            completed=curr_idx >= 2,
+            desc="تحویل به پست پیشتاز یا پیک اختصاصی گالری همراه با بارنامه",
+            completed=not is_cancelled and curr_idx >= 2,
         ),
         TrackingStep(
             title="statusDelivered",
-            desc="اثر هنری تحویل داده شده است",
-            completed=curr_idx >= 3,
+            desc="اثر هنری با سلامت کامل تحویل خریدار محترم گردید",
+            completed=not is_cancelled and curr_idx >= 3,
         ),
     ]
+
+    if is_cancelled:
+        steps.append(
+            TrackingStep(
+                title="statusCancelled",
+                desc="این سفارش لغو گردیده است",
+                completed=True,
+            )
+        )
 
     data = OrderTrackingResponse(
         orderId=order.orderId,
         status=order.status,
         paymentStatus=order.paymentStatus,
+        paymentMethod=order.paymentMethod,
         date=order.date,
         totalPrice=order.totalPrice,
         receiptUrl=order.receiptUrl,
         rejectionReason=order.rejectionReason,
+        items=[item.model_dump() for item in order.items],
+        shippingAddress=order.shippingAddress.model_dump() if order.shippingAddress else None,
         steps=[s.model_dump() for s in steps],
     ).model_dump()
 
