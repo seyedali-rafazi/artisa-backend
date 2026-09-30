@@ -29,6 +29,18 @@ class Product(Document):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    @property
+    def is_new(self) -> bool:
+        """Check if product was created/published within the last 10 days."""
+        from datetime import timezone
+        created = getattr(self, "created_at", None)
+        if not created and hasattr(self, "id") and hasattr(self.id, "generation_time"):
+            created = self.id.generation_time
+        if not created:
+            return False
+        now = datetime.now(timezone.utc) if created.tzinfo is not None else datetime.utcnow()
+        return 0 <= (now - created).total_seconds() <= 10 * 86400
+
     class Settings:
         name = "products"
 

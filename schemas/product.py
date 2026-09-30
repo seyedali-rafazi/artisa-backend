@@ -1,5 +1,6 @@
 """Product Pydantic Schemas."""
 
+from datetime import datetime
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field
 
@@ -51,6 +52,10 @@ class ProductResponse(BaseModel):
     rating: float
     isSpecial: Optional[bool] = False
     isBestSeller: Optional[bool] = False
+    isNew: Optional[bool] = False
+    isNewProduct: Optional[bool] = False
+    created_at: Optional[datetime] = None
+    createdAt: Optional[datetime] = None
     description: Optional[str] = None
     descriptionEn: Optional[str] = None
     specifications: Optional[Dict[str, str]] = Field(default_factory=dict)
